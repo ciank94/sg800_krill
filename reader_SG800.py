@@ -1,5 +1,38 @@
 import math
 import numpy as np
+import pyproj
+import netCDF4 as nc
+import datetime
+from netCDF4 import num2date
+
+class SGReader:
+    def __init__(self, samples_folder, samples_prefix, init_month, init_year):
+        filename = samples_folder + samples_prefix + str(init_year) + "{:02d}".format(init_month) + '.nc'
+        self.nc_file = nc.Dataset(filename)
+        self.init_datetime = datetime.datetime(init_year, init_month, 1, 0, 0)
+        self.current_datetime = self.init_datetime
+        self.time = num2date(self.nc_file['time'], self.nc_file['time'].units)
+        self.time_index = 0
+        return
+
+    def update_time(self, dt):
+        self.current_datetime += dt
+        if self.current_datetime>self.time[self.time_index]:
+            self.time_index += 1
+            print(self.current_datetime)
+        return
+
+
+
+
+
+
+
+
+
+
+
+
 def geo2grid(lat, lon, case):
     case_types = ['get_xy', 'get_bl']
     if case not in case_types:
@@ -79,3 +112,16 @@ def geo2grid(lat, lon, case):
             ys[i] = y / (dx * 1000)
 
     return xs, ys
+
+def pyproj_geo2grid(x, y, inverse):
+    radius = 6378206.4
+    x_0 = -175200/800
+    y_0 = 1484800/800
+    lon_0 = -45.0  # False origin longitude
+    lat_0 = -44.0  # False origin latitude
+    lat_1 = -40  # First parallel
+    lat_2 = -68  # Second parallel
+    proj4string = f'lcc +lat_0={lat_0} +lon_0={lon_0} +lat_1={lat_1} +lat_2={lat_2} +a={radius} +b={radius} +x_0={x_0} +y_0={y_0}'
+    proj = pyproj.Proj(proj=proj4string)
+    lon, lat = proj(x, y, inverse=inverse)
+    return lon, lat
