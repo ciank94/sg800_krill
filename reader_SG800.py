@@ -22,17 +22,6 @@ class SGReader:
             print(self.current_datetime)
         return
 
-
-
-
-
-
-
-
-
-
-
-
 def geo2grid(lat, lon, case):
     case_types = ['get_xy', 'get_bl']
     if case not in case_types:

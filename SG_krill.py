@@ -1,6 +1,8 @@
-from netCDF4 import num2date
+from netCDF4 import num2date, date2num
+import netCDF4 as nc
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 
 class Krill:
@@ -57,9 +59,48 @@ class Krill:
                 elif np.isnan(self.depth[np.floor(self.y[ii]).astype(int), np.floor(self.x[ii]).astype(int)]):
                     self.x[ii] = np.nan
                     self.y[ii] = np.nan
-
-
         return
+
+    def save_step(self, save_counter, current_datetime):
+        self.trajectory_file['xp'][:, save_counter] = self.x
+        self.trajectory_file['yp'][:, save_counter] = self.y
+        self.trajectory_file['time'][save_counter] = date2num(current_datetime,self.trajectory_file['time'].unit)
+        return
+
+
+    def init_netcdf(self, trajectory_folder, n, save_n, save_file_prefix):
+        # As I am appending to a file, I should check if dimensions or variables already exist
+        trajectory_filename = trajectory_folder + save_file_prefix + '.nc'
+        if os.path.exists(trajectory_filename):
+            save_file_prefix = save_file_prefix + 'x'
+            trajectory_filename = trajectory_folder + save_file_prefix + '.nc'
+
+        self.trajectory_file = nc.Dataset(trajectory_filename, mode='w')
+        dimension_key_dict = {'trajectory': n, 'obs': save_n}
+
+        for dimension in dimension_key_dict:
+         #   if dimension not in self.trajectory_file.dimensions.keys():
+            self.trajectory_file.createDimension(dimension, dimension_key_dict[dimension])
+
+        variable_key_dict = {'xp': {'datatype': 'f4', 'dimensions': ('trajectory', 'obs'),
+                                           'description': 'x position of particle'},
+                             'yp': {'datatype': 'f4', 'dimensions': ('trajectory', 'obs'),
+                                    'description': 'y position of particle'},
+                             'time': {'datatype': 'f4', 'dimensions': ('obs',),
+                                      'description': 'datetime of particle'}
+                             }
+
+        for variable in variable_key_dict:
+            #if variable not in self.trajectory_file.variables.keys():
+            self.trajectory_file.createVariable(variable, variable_key_dict[variable]['datatype'],
+                                                variable_key_dict[variable]['dimensions'])
+            self.trajectory_file[variable].description = variable_key_dict[variable]['description']
+
+        time_unit_out = "seconds since 2014-04-01 00:00:00"
+        self.trajectory_file['time'].setncattr('unit', time_unit_out)
+        print('Initialising trajectory file: ' + trajectory_filename)
+        return
+
 
     def plot_init(self):
         fig, axs = plt.subplots(figsize=(12, 8), layout='constrained')
@@ -77,7 +118,7 @@ class Krill:
         yy = np.arange(0, self.j_max,1)
         [ux, yx] = np.meshgrid(xx,yy)
         axs.quiver(ux[::sk,::sk], yx[::sk,::sk], self.u_east[::sk,::sk],self.v_north[::sk,::sk], edgecolors='k', alpha=0.5, linewidths=0.05)
-        #axs.scatter(self.x, self.y, s=0.4, c='r')
+        axs.scatter(self.x, self.y, s=0.4, c='r')
         fig.colorbar(d_map)
         plt.show()
         return
