@@ -28,6 +28,33 @@ class PlotData:
         self.df = nc.Dataset(trajectory_file, mode='r')
         return
 
+    def plot_dom_pathways(self, skip_t):
+        x_times = np.array(self.df['xp'][:, ::skip_t])
+        y_times = np.array(self.df['yp'][:, ::skip_t])
+        dom_vals = np.zeros(self.depth.shape)
+        dom_vals[:] = self.depth[:]
+        dom_vals[~np.isnan(dom_vals)] = 0
+        for p in range(0, x_times.shape[0]):
+            xp = x_times[p, :]
+            yp = y_times[p, :]
+            id_p = ~np.isnan(xp)
+            dom_vals[yp[id_p].astype(int), xp[id_p].astype(int)] += 1
+
+        dom_vals[~np.isnan(dom_vals)] /= x_times.shape[0]
+        #dom_vals[(dom_vals==0)] = np.nan
+        fig, axs = plt.subplots(figsize=(12, 8), layout='constrained')
+        cmap = plt.get_cmap('hot')
+        cmap.set_bad('gray', 0.4)
+        dom_map = axs.pcolormesh(dom_vals, cmap=cmap, alpha=1, vmax=0.0025)
+        axs.contour(self.depth, levels=self.bath_contours, colors='k', alpha=0.8,
+                    linewidths=1.5, zorder=2)
+        cbar = fig.colorbar(dom_map)
+        cbar.ax.tick_params(labelsize=12)
+        cbar.ax.set_ylabel('probability (%)', loc='center', size=12, weight='bold')
+        self.save_plot(plt_name='dom_paths')
+        return
+
+
 
     def plot_trajectory_color(self, skip_n, skip_t):
         fig, axs = plt.subplots(figsize=(12, 8), layout='constrained')
@@ -47,7 +74,7 @@ class PlotData:
         for i in range(0, self.df['xp'].shape[0], skip_n):
             x = x_times[i]
             y = y_times[i]
-            axs.plot(x, y, 'k', alpha=0.8,zorder=1, linewidth=1)
+            axs.plot(x, y, 'k', alpha=0.8,zorder=1, linewidth=1.5)
             axs.scatter(x, y, c=t, s=2.3, cmap=cmr.ember,zorder=2)
         scatter_map = axs.scatter(x, y, c=t_vals, s=2, cmap=cmr.ember, zorder=2)
         cbar1 = fig.colorbar(d_map)
