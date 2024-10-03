@@ -45,7 +45,7 @@ class Krill:
         time_index = reader_SG.time_index
         nc_file = reader_SG.nc_file
         dt = dt_datetime.seconds
-        if time_index > self.load_counter:
+        if time_index != self.load_counter:
             self.u_east = nc_file['u_east'][time_index, :, :, :]
             self.v_north = nc_file['v_north'][time_index, :, :, :]
             self.load_counter = time_index

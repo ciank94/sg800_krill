@@ -28,9 +28,9 @@ class PlotData:
         self.df = nc.Dataset(trajectory_file, mode='r')
         return
 
-    def plot_dom_pathways(self, skip_t):
-        x_times = np.array(self.df['xp'][:, ::skip_t])
-        y_times = np.array(self.df['yp'][:, ::skip_t])
+    def plot_dom_pathways(self, skip_t, kk):
+        x_times = np.array(self.df['xp'][:,kk, ::skip_t])
+        y_times = np.array(self.df['yp'][:,kk, ::skip_t])
         dom_vals = np.zeros(self.depth.shape)
         dom_vals[:] = self.depth[:]
         dom_vals[~np.isnan(dom_vals)] = 0

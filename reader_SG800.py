@@ -3,26 +3,40 @@ import numpy as np
 import pyproj
 import netCDF4 as nc
 import datetime
-from netCDF4 import num2date
+from netCDF4 import num2date, date2num
 
 class SGReader:
-    def __init__(self, samples_folder, samples_prefix, duration, init_month, init_year, N, n):
-        filename = samples_folder + samples_prefix + str(init_year) + "{:02d}".format(init_month) + '.nc'
-        self.nc_file = nc.Dataset(filename)
-        self.init_datetime = datetime.datetime(init_year, init_month, 1, 0, 0)
+    def __init__(self, samples_folder, samples_prefix, duration, date_init):
+        self.filename = (samples_folder + samples_prefix + str(date_init.year) + "{:02d}".format(date_init.month) + '.nc')
+        print('opening new SG file: ' + self.filename)
+        self.nc_file = nc.Dataset(self.filename)
+        self.init_datetime = date_init
         self.current_datetime = self.init_datetime
+        self.file_month = self.init_datetime.month
         self.time = num2date(self.nc_file['time'], self.nc_file['time'].units)
-        self.save_file_prefix = 'sim_' + str(init_year) + "{:02d}".format(
-            init_month) + '_d' + str(duration)
+        self.save_file_prefix = 'sim_' + str(date_init.year) + "{:02d}".format(
+            date_init.month) + "{:02d}".format(date_init.day) + '_d' + str(duration)
         self.save_file = self.save_file_prefix + '.nc'
-        self.time_index = 0
+        current_datenum = date2num(self.current_datetime, self.nc_file['time'].units)
+        self.time_index = np.argmin((current_datenum-self.nc_file['time'][:])**2)
         return
 
     def update_time(self, dt):
         self.current_datetime += dt
-        if self.current_datetime>self.time[self.time_index]:
-            self.time_index += 1
+        if (self.current_datetime.hour != self.time[self.time_index].hour):
+            current_datenum = date2num(self.current_datetime, self.nc_file['time'].units)
+            self.time_index = np.argmin((current_datenum - self.nc_file['time'][:]) ** 2)
             print(self.current_datetime)
+        return
+
+    def update_file_month(self, samples_folder, samples_prefix):
+        self.filename = (samples_folder + samples_prefix + str(self.current_datetime.year) +
+                    "{:02d}".format(self.current_datetime.month) + '.nc')
+        self.nc_file = nc.Dataset(self.filename)
+        current_datenum = date2num(self.current_datetime, self.nc_file['time'].units)
+        self.time_index = np.argmin((current_datenum - self.nc_file['time'][:]) ** 2)
+        self.file_month = self.current_datetime.month
+        print('opening new SG file: ' + self.filename)
         return
 
 def geo2grid(lat, lon, case):
