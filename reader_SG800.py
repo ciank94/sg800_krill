@@ -6,12 +6,15 @@ import datetime
 from netCDF4 import num2date
 
 class SGReader:
-    def __init__(self, samples_folder, samples_prefix, init_month, init_year):
+    def __init__(self, samples_folder, samples_prefix, duration, init_month, init_year, N, n):
         filename = samples_folder + samples_prefix + str(init_year) + "{:02d}".format(init_month) + '.nc'
         self.nc_file = nc.Dataset(filename)
         self.init_datetime = datetime.datetime(init_year, init_month, 1, 0, 0)
         self.current_datetime = self.init_datetime
         self.time = num2date(self.nc_file['time'], self.nc_file['time'].units)
+        self.save_file_prefix = 'sim_' + str(init_year) + "{:02d}".format(
+            init_month) + '_d' + str(duration)
+        self.save_file = self.save_file_prefix + '.nc'
         self.time_index = 0
         return
 

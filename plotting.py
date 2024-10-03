@@ -56,7 +56,7 @@ class PlotData:
 
 
 
-    def plot_trajectory_color(self, skip_n, skip_t):
+    def plot_trajectory_color(self, skip_n, skip_t, kk):
         fig, axs = plt.subplots(figsize=(12, 8), layout='constrained')
         #cmap = plt.get_cmap('Blues')
         cmap = cmr.ocean_r
@@ -64,8 +64,8 @@ class PlotData:
         d_map = axs.pcolormesh(self.depth, cmap=cmap, alpha=0.75, vmax=4000)
         axs.contour(self.depth, levels=self.bath_contours, colors='k', alpha=0.35,
                     linewidths=1.5)
-        x_times = self.df['xp'][:, ::skip_t]
-        y_times = self.df['yp'][:, ::skip_t]
+        x_times = self.df['xp'][:,kk, ::skip_t]
+        y_times = self.df['yp'][:,kk, ::skip_t]
         #time_stamps = num2date(self.df['time'][::skip_t], self.df['time'].unit)
         t_vals = np.arange(0,skip_t*(4/24)*x_times.shape[1],skip_t*(4/24))
 
