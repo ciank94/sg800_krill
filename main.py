@@ -2,10 +2,40 @@ from reader_SG800 import SGReader
 from SG_krill import Krill
 import datetime
 import numpy as np
+import matplotlib.pyplot as plt
 samples_folder = 'E:/fromIngrid/samplefiles_reruns/'
 samples_prefix = 'samplesNSEW_'
 local_folder = 'C:/Users/ciank/PycharmProjects/sinmod/sg800_krill/'
 trajectory_folder = local_folder + 'trajectory/'
+
+counter = -1
+range_vals = np.arange(0, 1, 0.001)
+phi = np.zeros(range_vals.shape[0])
+max_sp = 0.012
+v_lower = 0.4
+v_upper = v_lower + 0.2
+mu, sigma = 0, 0.06
+rv = np.random.normal(mu, sigma, range_vals.shape[0])
+for x in range_vals:
+    counter = counter + 1
+    if (x >= v_lower) & (x <= v_upper):
+        phi[counter] = 0
+    elif (x > v_upper):
+        phi[counter] = ((x - v_upper) ** 2) * rv[counter]
+    elif (x < v_lower):
+        phi[counter] = ((x - v_lower) ** 2) * rv[counter]
+
+    if phi[counter] > max_sp:
+        phi[counter] = max_sp
+    if phi[counter] < -max_sp:
+        phi[counter] = -max_sp
+
+
+plt.plot(range_vals, phi)
+plt.xlim([0, 1])
+plt.show()
+breakpoint()
+
 
 # time parameters: #todo: have a date_init variable that calls the correct file
 date_init = datetime.datetime(2017, 5, 31, 21, 0)
@@ -38,10 +68,10 @@ for i in np.arange(0, simulation_steps, 1):
         k.init_krill(N=N, n=n, x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max)
         k.init_netcdf(trajectory_folder=trajectory_folder, N=N, n=n,
                       save_n=save_number, save_file=reader_SG.save_file)
-        k.step_krill(dt, reader_SG)
-    else:
-        k.step_krill(dt, reader_SG)
-    #k.plot_init(kk=0)
+
+    k.step_krill(dt, reader_SG)
+    #k.plot_init(kk=0) # plot an example ensemble member
+
     # update the current time in simulation
     reader_SG.update_time(dt)
 
