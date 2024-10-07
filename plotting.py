@@ -28,6 +28,19 @@ class PlotData:
         self.df = nc.Dataset(trajectory_file, mode='r')
         return
 
+    def plot_depths(self, skip_t, kk):
+        # x_times = np.array(self.df['xp'][:, kk, ::skip_t])
+        # y_times = np.array(self.df['yp'][:, kk, ::skip_t])
+        z_times = np.array(self.df['zp'][:, kk, ::skip_t])
+        # t_times = np.array(self.df['temp'][:, kk, ::skip_t])
+        # w_times = np.array(self.df['w'][:, kk, ::skip_t])
+        # t_times[t_times<-2000] = np.nan
+        # w_times[w_times < -2000] = np.nan
+        # plt.scatter(t_times, w_times)
+        [plt.plot(z_times[i,:],'b') for i in range(0, 1600)]
+        plt.show()
+        breakpoint()
+
     def plot_dom_pathways(self, skip_t, kk):
         x_times = np.array(self.df['xp'][:,kk, ::skip_t])
         y_times = np.array(self.df['yp'][:,kk, ::skip_t])
@@ -66,6 +79,7 @@ class PlotData:
                     linewidths=1.5)
         x_times = self.df['xp'][:,kk, ::skip_t]
         y_times = self.df['yp'][:,kk, ::skip_t]
+        breakpoint()
         #time_stamps = num2date(self.df['time'][::skip_t], self.df['time'].unit)
         t_vals = np.arange(0,skip_t*(4/24)*x_times.shape[1],skip_t*(4/24))
 

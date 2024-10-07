@@ -21,18 +21,32 @@ class SGReader:
         self.time_index = np.argmin((current_datenum-self.nc_file['time'][:])**2)
         return
 
-    def update_time(self, dt):
+    def update_time(self, dt, test, samples_folder, samples_prefix):
         self.current_datetime += dt
-        if (self.current_datetime.hour != self.time[self.time_index].hour):
-            current_datenum = date2num(self.current_datetime, self.nc_file['time'].units)
-            self.time_index = np.argmin((current_datenum - self.nc_file['time'][:]) ** 2)
-            print(self.current_datetime)
+        if self.current_datetime.month != self.file_month:
+            self.nc_file.close()
+            self.update_file_month(samples_folder=samples_folder, samples_prefix=samples_prefix)
+            new_file = True
+        else:
+            new_file = False
+
+        if test:
+            if (self.current_datetime.day != self.time[self.time_index].day) | new_file:
+                current_datenum = date2num(self.current_datetime, self.nc_file['time'].units)
+                self.time_index = np.argmin((current_datenum - self.nc_file['time'][:]) ** 2)
+                print(self.current_datetime)
+        else:
+            if (self.current_datetime.hour != self.time[self.time_index].hour) | new_file:
+                current_datenum = date2num(self.current_datetime, self.nc_file['time'].units)
+                self.time_index = np.argmin((current_datenum - self.nc_file['time'][:]) ** 2)
+                print(self.current_datetime)
         return
 
     def update_file_month(self, samples_folder, samples_prefix):
         self.filename = (samples_folder + samples_prefix + str(self.current_datetime.year) +
                     "{:02d}".format(self.current_datetime.month) + '.nc')
         self.nc_file = nc.Dataset(self.filename)
+        self.time = num2date(self.nc_file['time'], self.nc_file['time'].units)
         current_datenum = date2num(self.current_datetime, self.nc_file['time'].units)
         self.time_index = np.argmin((current_datenum - self.nc_file['time'][:]) ** 2)
         self.file_month = self.current_datetime.month
