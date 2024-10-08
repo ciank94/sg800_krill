@@ -2,15 +2,18 @@ from reader_SG800 import SGReader
 from SG_krill import Krill
 import datetime
 import numpy as np
+import logging
 import matplotlib.pyplot as plt
 
 samples_prefix = 'samplesNSEW_'
 remote = False
 test = False
+logger = logging.getLogger(__name__)
+logger.warning('Beginning new simulation: ')
 
 if remote:
     remote_folder = '/cluster/projects/nn9828k/Cian_sinmod/sg800_krill/'
-    samples_folder = remote_folder + 'sg_phys_states/'
+    samples_folder = '/cluster/projects/nn9828k/Cian_sinmod/' + 'sg_phys_states/'
     trajectory_folder = remote_folder + 'trajectory/'
 else:
     samples_folder = 'E:/fromIngrid/samplefiles_reruns/'
@@ -44,6 +47,7 @@ save_counter = -1
 for i in np.arange(0, simulation_steps, 1):
     time_counter -= dt
     if i == 0:
+        logger.warning('initialising krill: ')
         k = Krill(reader_SG.nc_file)
         k.init_krill(N=N, n=n, x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max)
         k.init_netcdf(trajectory_folder=trajectory_folder, N=N, n=n,
@@ -59,7 +63,8 @@ for i in np.arange(0, simulation_steps, 1):
     if time_counter <= time_threshold:
         save_counter += 1
         time_counter = save_step
-        print('saving ' + str(save_counter + 1) + ' of ' + str(save_number))
+        logger.warning('saving ' + str(save_counter + 1) + ' of ' + str(save_number))
+        #print('saving ' + str(save_counter + 1) + ' of ' + str(save_number))
         k.save_step(save_counter=save_counter, current_datetime=reader_SG.current_datetime)
 
 k.trajectory_file.close()

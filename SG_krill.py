@@ -105,7 +105,7 @@ class Krill:
     def swim_temp(self, t, kk, grad_t):
 
         if grad_t == 0:
-            w = 0
+            w = 0.
         else:
             if t < self.t_min:
                 scale_w = ((t - self.t_min) ** 2)/(2**2)
