@@ -15,26 +15,24 @@ class Krill:
         self.res = 800
         self.load_counter = -1
         self.t_mu = 0
-        self.w_max = 0.5
-        self.t_sigma = self.w_max
+        self.w_mean = 0.5
+        self.t_sigma = 0.1
+        self.t_min = -1.5
+        self.t_max = 1.5
         return
 
     def init_krill(self, N, n, x_min, x_max, y_min, y_max):
         self.x = np.zeros([n, N])
         self.y = np.zeros([n, N])
         self.z = np.ones([n, N])*75
-        self.t_min = np.zeros([N])
-        self.t_max = np.zeros([N])
+        self.w_max = np.zeros([N])
+
         step_xy = (n / np.sqrt(n))
 
         for kk in range(0, N, 1):
             counter = -1
-            self.t_min[kk] = np.random.normal(-1.5, 0.2,1)
-            self.t_max[kk] = self.t_min[kk] + 3
-            print('temp min for ens = ' + str(kk))
-            print(self.t_min[kk])
-            print('temp max for ens = ' + str(kk))
-            print(self.t_max[kk])
+            self.w_max[kk] = np.abs(np.random.normal(self.w_mean, self.t_sigma, 1))
+            print(str(self.w_max[kk]))
             for ii in np.arange(0, step_xy, 1):
                 x = x_min + ((x_max - x_min) * (((ii + 1) / step_xy)))
                 for jj in np.arange(0, step_xy, 1):
@@ -93,7 +91,7 @@ class Krill:
                         self.y[ii, kk] = np.nan
                         self.z[ii, kk] = np.nan
                     else:
-                        if (t > self.t_max[kk]) | (t < self.t_min[kk]):
+                        if (t > self.t_max) | (t < self.t_min):
                             w = self.swim_temp(t, kk, grad_t)
                         else:
                             w = 0.
@@ -109,12 +107,12 @@ class Krill:
         if grad_t == 0:
             w = 0
         else:
-            if t < self.t_min[kk]:
-                scale_w = ((t - self.t_min[kk]) ** 2)/(2**2)
-                w = scale_w*np.sign(grad_t)*self.w_max
+            if t < self.t_min:
+                scale_w = ((t - self.t_min) ** 2)/(2**2)
+                w = scale_w*np.sign(grad_t)*self.w_max[kk]
             else:
-                scale_w = (((t - self.t_max[kk]) ** 2) / (2**2))
-                w = -1*scale_w*np.sign(grad_t)*self.w_max
+                scale_w = (((t - self.t_max) ** 2) / (2**2))
+                w = -1*scale_w*np.sign(grad_t)*self.w_max[kk]
         return w
 
     def save_step(self, save_counter, current_datetime):

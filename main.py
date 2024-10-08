@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 
 samples_prefix = 'samplesNSEW_'
 remote = False
+test = False
+
 if remote:
     remote_folder = '/cluster/projects/nn9828k/Cian_sinmod/sg800_krill/'
     samples_folder = remote_folder + 'sg_phys_states/'
@@ -26,9 +28,8 @@ simulation_steps = duration_days/dt
 save_number = duration_days/save_step
 
 # model parameters:
-test = True
 n = 1600  # particle number
-N = 1 # Ensemble member;
+N = 10 # Ensemble member;
 x_min = 210.0  # coordinates for initialization; todo: make initialization
 x_max = 610.4
 y_min = 210.0
