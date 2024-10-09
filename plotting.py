@@ -44,6 +44,8 @@ class PlotData:
     def plot_dom_pathways(self, skip_t, kk):
         x_times = np.array(self.df['xp'][:,kk, ::skip_t])
         y_times = np.array(self.df['yp'][:,kk, ::skip_t])
+        x_times[x_times>1000] = np.nan
+        y_times[y_times > 1000] = np.nan
         dom_vals = np.zeros(self.depth.shape)
         dom_vals[:] = self.depth[:]
         dom_vals[~np.isnan(dom_vals)] = 0
@@ -53,12 +55,14 @@ class PlotData:
             id_p = ~np.isnan(xp)
             dom_vals[yp[id_p].astype(int), xp[id_p].astype(int)] += 1
 
-        dom_vals[~np.isnan(dom_vals)] /= x_times.shape[0]
+        dom_vals[~np.isnan(dom_vals)] /= (x_times.shape[0]*x_times.shape[1])
+        print(str(x_times.shape[1]))
         #dom_vals[(dom_vals==0)] = np.nan
         fig, axs = plt.subplots(figsize=(12, 8), layout='constrained')
         cmap = plt.get_cmap('hot')
         cmap.set_bad('gray', 0.4)
-        dom_map = axs.pcolormesh(dom_vals, cmap=cmap, alpha=1, vmax=0.0025)
+        vmax = np.nanmax(dom_vals)/2
+        dom_map = axs.pcolormesh(dom_vals, cmap=cmap, alpha=1, vmax=vmax)
         axs.contour(self.depth, levels=self.bath_contours, colors='k', alpha=0.8,
                     linewidths=1.5, zorder=2)
         cbar = fig.colorbar(dom_map)
@@ -79,7 +83,6 @@ class PlotData:
                     linewidths=1.5)
         x_times = self.df['xp'][:,kk, ::skip_t]
         y_times = self.df['yp'][:,kk, ::skip_t]
-        breakpoint()
         #time_stamps = num2date(self.df['time'][::skip_t], self.df['time'].unit)
         t_vals = np.arange(0,skip_t*(4/24)*x_times.shape[1],skip_t*(4/24))
 
