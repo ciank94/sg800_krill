@@ -10,7 +10,8 @@ samples_prefix = 'samplesNSEW_'
 remote = False
 test = True
 logger = logging.getLogger(__name__)
-logger.warning('Beginning new simulation: ')
+logger.warning('========================')
+logger.warning('Beginning new simulation ')
 
 if remote:
     remote_folder = '/cluster/projects/nn9828k/Cian_sinmod/sg800_krill/'
@@ -20,6 +21,9 @@ else:
     samples_folder = 'E:/fromIngrid/samplefiles_reruns/'
     local_folder = 'C:/Users/ciank/PycharmProjects/sinmod/sg800_krill/'
     trajectory_folder = local_folder + 'trajectory/'
+
+logger.warning('samples folder = ' + samples_folder)
+logger.warning('========================')
 
 # time parameters: #todo: have a date_init variable that calls the correct file
 date_init = datetime.datetime(2017, 5, 1, 21, 0)
@@ -32,8 +36,8 @@ simulation_steps = duration_days/dt
 save_number = duration_days/save_step
 
 # model parameters:
-n = 2500  # particle number
-N = 9 # Ensemble member;
+n = 1600  # particle number
+N = 25 # Ensemble member;
 x_min = 210.0  # coordinates for initialization; todo: make initialization
 x_max = 610.4
 y_min = 210.0
@@ -43,7 +47,7 @@ y_max = 610.5
 reader_SG = SGReader(trajectory_folder, samples_folder, samples_prefix, duration_days.days, date_init)
 
 # log init to file
-reader_SG.log_init(n, N, x_min, x_max, y_min, y_max)
+reader_SG.log_init(n, N, x_min, x_max, y_min, y_max, dt, save_step, simulation_steps, save_number)
 
 # start of simulation:
 time_counter = save_step
@@ -70,9 +74,9 @@ for i in np.arange(0, simulation_steps, 1):
     if time_counter <= time_threshold:
         save_counter += 1
         time_counter = save_step
-        logger.warning('saving ' + str(save_counter + 1) + ' of ' + str(save_number))
+        logger.info('saving ' + str(save_counter + 1) + ' of ' + str(save_number))
         k.save_step(save_counter=save_counter, current_datetime=reader_SG.current_datetime)
 
 python_time = time.time() - start_time
-logger.warning(f"Python addition took {python_time:.6f} seconds.")
+logger.info(f"Simulation took {python_time/(60*60):.2f} hours.")
 k.trajectory_file.close()

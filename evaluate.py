@@ -17,7 +17,7 @@ save_folder = local_directory + 'figures/'
 pl = PlotData(save_folder, trajectory_folder)
 
 # read the file that needs reading: #todo: functions that call different files, determines number of plots and saves if time
-time_prefix = 'trajectory_20170502_d10'
+time_prefix = 'trajectory_20170501_d10'
 pl.read_trajectory_file(file_prefix=time_prefix)
 
 # plot depths:
@@ -25,7 +25,7 @@ pl.read_trajectory_file(file_prefix=time_prefix)
 
 # first plots: environment and trajectories over time;
 #pl.plot_currents()
-pl.plot_trajectory_color(skip_n=10, skip_t=1, kk=0)
+pl.plot_trajectory_color(skip_n=1, skip_t=1, kk=7)
 
 # dom_pathways plots:
 #pl.plot_dom_pathways(skip_t=1, kk=slice(0,10,1))

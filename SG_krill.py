@@ -3,6 +3,7 @@ import netCDF4 as nc
 import numpy as np
 import matplotlib.pyplot as plt
 import logging
+from joblib import Parallel, delayed
 from numba import njit
 import os
 
@@ -28,9 +29,9 @@ class Krill:
         self.t_min = np.reshape(t_vals, [N])
         self.t_max = self.t_min + 3
         self.w_max = np.reshape(w_vals, [N])*0.06
-        self.logger.warning('min temps: ' + str(self.t_min))
-        self.logger.warning('max temps: ' + str(self.t_max))
-        self.logger.warning('max w: ' + str(self.w_max))
+        self.logger.info('min temps: ' + str(self.t_min))
+        self.logger.info('max temps: ' + str(self.t_max))
+        self.logger.info('max w: ' + str(self.w_max))
         self.init_temp = True
         return
 
@@ -47,10 +48,6 @@ class Krill:
                 for jj in np.arange(0, step_xy, 1):
                     y = y_min + ((y_max - y_min) * (((jj + 1) / step_xy)))
                     counter = counter + 1
-                    #if (x > x_max) | (y > y_max):
-                        #breakpoint()
-                    #if counter >= self.x.shape[0]:
-                        #breakpoint()
                     if self.depth[np.floor(y).astype(int), np.floor(x).astype(int)] > 0:
                         self.x[counter, kk] = x
                         self.y[counter, kk] = y
@@ -59,13 +56,14 @@ class Krill:
                         self.x[counter, kk] = np.nan
                         self.y[counter, kk] = np.nan
                         self.z[counter, kk] = np.nan
-        print('Initialised krill with x and y values')
+        self.logger.info('Initialised ' + str(np.nansum(self.x>0)) + ' krill with x and y values across ' + str(N) +
+                         ' ensemble members')
         return
 
     def step_krill_test(self, dt_datetime, reader_SG):
         time_index = reader_SG.time_index
         nc_file = reader_SG.nc_file
-        dt = dt_datetime.seconds
+        self.dt = dt_datetime.seconds
         if time_index != self.load_counter:
             self.u_east = np.array(nc_file['u_east'][time_index, :, :, :])
             self.v_north = np.array(nc_file['v_north'][time_index, :, :, :])
@@ -74,26 +72,59 @@ class Krill:
             self.v_north[self.v_north < -3000] = np.nan
             self.u_east[self.u_east < -3000] = np.nan
             self.load_counter = time_index
-            print('loading variables')
+            self.logger.info('loading new variables for datetime: ' + str(reader_SG.current_datetime))
         self.t_save = np.ones([self.x.shape[0], self.x.shape[1]]) * -32000
         self.w_save = np.ones([self.x.shape[0], self.x.shape[1]]) * -32000
-        N = self.x.shape[1]
-        n = self.x.shape[0]
-        [x1, y1, z1, t_save, w_save] = loop_individuals(self.x, self.y, self.z, self.i_max, self.j_max,
-                                                               self.u_east, self.v_north, self.temp, self.depth,
-                                                               self.lay_depths, self.t_min, self.t_max, dt, self.res,
-                                                               self.t_save, self.w_save, self.w_max, N, n)
+        #for kk in range(0, self.x.shape[1]):
+            #for ii in range(0, self.x.shape[0]):
+        Parallel(n_jobs=self.x.shape[1], prefer="threads")(delayed(self.loop_krill)(kk) for kk in range(0, self.x.shape[1]))
+        return
 
+    def loop_krill(self, kk):
+        for ii in range(0, self.x.shape[0]):
+            if ((self.x[ii, kk] > 0) & (self.x[ii, kk] < self.i_max) & (self.y[ii, kk] < self.j_max) &
+                    (self.y[ii, kk] > 0)):
+                layer_ii = np.argmin((self.lay_depths - self.z[ii, kk]) ** 2)
+                u = self.u_east[layer_ii, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)]
+                v = self.v_north[layer_ii, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)]
+                t = self.temp[
+                        layer_ii, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)] - 273.15
+                grads_t = np.gradient(
+                    self.temp[:, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)] - 273.15)
+                grad_t = grads_t[layer_ii]
 
-        self.x = x1
-        self.y = y1
-        self.z = z1
-        self.t_save = t_save
-        self.w_save = w_save
-
-        #breakpoint()
+                if (np.isnan(t)) | (np.isnan(u)) | (np.isnan(v)):
+                    self.x[ii, kk] = np.nan
+                    self.y[ii, kk] = np.nan
+                    self.z[ii, kk] = np.nan
+                elif (self.x[ii, kk] > self.i_max) | (self.y[ii, kk] > self.j_max) | (self.y[ii, kk] < 1) | (
+                        self.x[ii, kk] < 1):
+                    self.x[ii, kk] = np.nan
+                    self.y[ii, kk] = np.nan
+                    self.z[ii, kk] = np.nan
+                elif np.isnan(
+                        self.depth[np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)]):
+                    self.x[ii, kk] = np.nan
+                    self.y[ii, kk] = np.nan
+                    self.z[ii, kk] = np.nan
+                else:  # other options for krill
+                    if (t > self.t_max[kk]) | (t < self.t_min[kk]):
+                        w = self.swim_temp(t, kk, grad_t)
+                    else:
+                        w = 0.
+                    self.x[ii, kk] = self.x[ii, kk] + ((self.dt * u) / self.res)
+                    self.y[ii, kk] = self.y[ii, kk] + ((self.dt * v) / self.res)
+                    self.z[ii, kk] = self.z[ii, kk] + ((self.dt * w) / self.res)
+                    self.t_save[ii, kk] = t
+                    self.w_save[ii, kk] = w
+            else:
+                self.x[ii, kk] = np.nan
+                self.y[ii, kk] = np.nan
+                self.z[ii, kk] = np.nan
 
         return
+
+
 
     def step_krill(self, dt_datetime, reader_SG):
         time_index = reader_SG.time_index
@@ -107,12 +138,13 @@ class Krill:
             self.v_north[self.v_north < -3000] = np.nan
             self.u_east[self.u_east < -3000] = np.nan
             self.load_counter = time_index
-            print('loading variables')
+            self.logger.info('loading new variables for datetime: ' + str(reader_SG.current_datetime))
         self.t_save = np.ones([self.x.shape[0], self.x.shape[1]]) * -32000
         self.w_save = np.ones([self.x.shape[0], self.x.shape[1]]) * -32000
         for kk in range(0, self.x.shape[1]):
             for ii in range(0, self.x.shape[0]):
-                if self.x[ii, kk] > 0:
+                if ((self.x[ii, kk] > 0) & (self.x[ii, kk] < self.i_max) & (self.y[ii, kk] < self.j_max) &
+                        (self.y[ii, kk] > 0)):
                     layer_ii = np.argmin((self.lay_depths - self.z[ii, kk])**2)
                     u = self.u_east[layer_ii, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)]
                     v = self.v_north[layer_ii, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)]
@@ -120,19 +152,21 @@ class Krill:
                     grads_t = np.gradient(self.temp[:, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)] - 273.15)
                     grad_t = grads_t[layer_ii]
 
-                    if (np.isnan(t))|(np.isnan(u))|(np.isnan(v)):
+                    if (np.isnan(t)) | (np.isnan(u)) | (np.isnan(v)):
                         self.x[ii, kk] = np.nan
                         self.y[ii, kk] = np.nan
                         self.z[ii, kk] = np.nan
-                    elif (self.x[ii, kk] > self.i_max) | (self.y[ii, kk] > self.j_max) | (self.y[ii, kk] < 1)| (self.x[ii, kk] < 1):
+                    elif (self.x[ii, kk] > self.i_max) | (self.y[ii, kk] > self.j_max) | (self.y[ii, kk] < 1) | (
+                            self.x[ii, kk] < 1):
                         self.x[ii, kk] = np.nan
                         self.y[ii, kk] = np.nan
                         self.z[ii, kk] = np.nan
-                    elif np.isnan(self.depth[np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)]):
+                    elif np.isnan(
+                            self.depth[np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)]):
                         self.x[ii, kk] = np.nan
                         self.y[ii, kk] = np.nan
                         self.z[ii, kk] = np.nan
-                    else: # other options for krill
+                    else:  # other options for krill
                         if (t > self.t_max[kk]) | (t < self.t_min[kk]):
                             w = self.swim_temp(t, kk, grad_t)
                         else:
@@ -142,6 +176,11 @@ class Krill:
                         self.z[ii, kk] = self.z[ii, kk] + ((dt * w) / self.res)
                         self.t_save[ii, kk] = t
                         self.w_save[ii, kk] = w
+                else:
+                    self.x[ii, kk] = np.nan
+                    self.y[ii, kk] = np.nan
+                    self.z[ii, kk] = np.nan
+
         return
 
     def swim_temp(self, t, kk, grad_t):
@@ -205,7 +244,7 @@ class Krill:
             self.trajectory_file['w_max'][:] = self.w_max
         time_unit_out = "seconds since 2014-04-01 00:00:00"
         self.trajectory_file['time'].setncattr('unit', time_unit_out)
-        print('Initialising trajectory file: ' + trajectory_filename)
+        self.logger.info('Initialising trajectory file: ' + trajectory_filename)
         return
 
 
@@ -229,61 +268,4 @@ class Krill:
         fig.colorbar(d_map)
         plt.show()
         return
-
-@njit
-def loop_individuals(x1, y, z, i_max, j_max, u_east, v_north, temp, depth, lay_depths, t_min, t_max,
-                     dt, res, t_save, w_save, w_max, N, n):
-    choice_v = np.array([-1, 1])
-    for kk in range(0, N, 1):
-        for ii in range(0, n, 1):
-            if x1[ii, kk] > 0:
-                x_int = round(x1[ii, kk])
-                y_int = round(y[ii, kk])
-                layer_ii = np.argmin((lay_depths - z[ii, kk]) ** 2)
-                ue = u_east[layer_ii, :, :]
-                vv = v_north[layer_ii, :, :]
-                tt = temp[layer_ii, :, :] - 273.15
-                t = tt[y_int, x_int]
-                u = ue[y_int, x_int]
-                v = vv[y_int, x_int]
-                temp_list = temp[:, y_int, x_int] - 273.15
-                grads_t = np.zeros(temp_list.shape[0])
-                grads_t[1:None] = temp_list[1:None] - temp_list[0:-1]
-                #grads_t = np.gradient(temp[:, y_int, x_int] - 273.15)
-                grad_t = grads_t[layer_ii]
-
-                if (np.isnan(t)) | (np.isnan(u)) | (np.isnan(v)):
-                    x1[ii, kk] = np.nan
-                    y[ii, kk] = np.nan
-                    z[ii, kk] = np.nan
-                elif (x1[ii, kk] > i_max) | (y[ii, kk] > j_max) | (y[ii, kk] < 1) | (
-                        x1[ii, kk] < 1):
-                    x1[ii, kk] = np.nan
-                    y[ii, kk] = np.nan
-                    z[ii, kk] = np.nan
-                elif np.isnan(depth[y_int, x_int]):
-                    x1[ii, kk] = np.nan
-                    y[ii, kk] = np.nan
-                    z[ii, kk] = np.nan
-                else:  # other options for krill
-                    if (t > t_max[kk]) | (t < t_min[kk]):
-                        if (grad_t == 0) | (np.isnan(grad_t)):
-                            scale_w = np.random.choice(choice_v)
-                            w = scale_w * w_max[kk]
-                        elif t < t_min[kk]:
-                            # scale_w = ((t - self.t_min) ** 2) / (2 ** 2)
-                            w = np.sign(grad_t) * w_max[kk]
-                        else:
-                            # scale_w = (((t - self.t_max) ** 2) / (2 ** 2))
-                            w = -1 * np.sign(grad_t) * w_max[kk]
-                    else:
-                        w = 0.
-
-                    x1[ii, kk] = x1[ii, kk] + ((dt * u) / res)
-                    y[ii, kk] = y[ii, kk] + ((dt * v) / res)
-                    z[ii, kk] = z[ii, kk] + ((dt * w) / res)
-                    t_save[ii, kk] = t
-                    w_save[ii, kk] = w
-
-    return x1, y, z, t_save, w_save
 

@@ -9,9 +9,9 @@ import logging
 class SGReader:
     def __init__(self, trajectory_folder, samples_folder, samples_prefix, duration, date_init):
         self.filename = (samples_folder + samples_prefix + str(date_init.year) + "{:02d}".format(date_init.month) + '.nc')
-        print('opening new SG file: ' + self.filename)
         self.nc_file = nc.Dataset(self.filename)
         self.init_datetime = date_init
+        self.duration = duration
         self.current_datetime = self.init_datetime
         self.file_month = self.init_datetime.month
         self.time = num2date(self.nc_file['time'], self.nc_file['time'].units)
@@ -28,20 +28,32 @@ class SGReader:
             filename=trajectory_folder + log_filename + '.log',
             level=logging.INFO,
             filemode='w',
-            format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
+            #format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
+            format='[%(asctime)s] - %(name)s - %(levelname)s - %(message)s',
             datefmt='%H:%M:%S'
         )
+        self.logger.info('opening new SG file: ' + self.filename)
         return
 
-    def log_init(self, n, N, x_min, x_max, y_min, y_max):
+    def log_init(self, n, N, x_min, x_max, y_min, y_max, dt, save_step, simulation_steps, save_number):
+        self.logger.info('samples_filename = ' + str(self.filename))
+        self.logger.info('date_init = ' + str(self.init_datetime))
+        self.logger.info('==============================')
+        self.logger.info('=========init_params==========')
+        self.logger.info('1) IBM parameters')
         self.logger.info('n = ' + str(n))
         self.logger.info('N = ' + str(N))
         self.logger.info('x_min = ' + str(x_min))
         self.logger.info('x_max = ' + str(x_max))
         self.logger.info('y_min = ' + str(y_min))
         self.logger.info('y_max = ' + str(y_max))
-        self.logger.info('samples_filename = ' + str(self.filename))
-        self.logger.info('date_init = ' + str(self.init_datetime))
+        self.logger.info('2) Time parameters')
+        self.logger.info('duration (days) = ' + str(self.duration))
+        self.logger.info('time step (hours) = ' + str(dt))
+        self.logger.info('save step (hours) = ' + str(save_step))
+        self.logger.info('simulation steps(#) = ' + str(int(simulation_steps)))
+        self.logger.info('save number(#) = ' + str(int(save_number)))
+        self.logger.info('==============================')
         return
 
     def update_time(self, dt, test, samples_folder, samples_prefix):
@@ -57,12 +69,10 @@ class SGReader:
             if (self.current_datetime.day != self.time[self.time_index].day) | new_file:
                 current_datenum = date2num(self.current_datetime, self.nc_file['time'].units)
                 self.time_index = np.argmin((current_datenum - self.nc_file['time'][:]) ** 2)
-                print(self.current_datetime)
         else:
             if (self.current_datetime.hour != self.time[self.time_index].hour) | new_file:
                 current_datenum = date2num(self.current_datetime, self.nc_file['time'].units)
                 self.time_index = np.argmin((current_datenum - self.nc_file['time'][:]) ** 2)
-                print(self.current_datetime)
         return
 
     def update_file_month(self, samples_folder, samples_prefix):
@@ -73,7 +83,7 @@ class SGReader:
         current_datenum = date2num(self.current_datetime, self.nc_file['time'].units)
         self.time_index = np.argmin((current_datenum - self.nc_file['time'][:]) ** 2)
         self.file_month = self.current_datetime.month
-        print('opening new SG file: ' + self.filename)
+        self.logger.info('opening new SG file: ' + self.filename)
         return
 
 def geo2grid(lat, lon, case):
