@@ -35,11 +35,61 @@ class SGReader:
         self.logger.info('opening new SG file: ' + self.filename)
         return
 
+    def read_bio(self, samples_folder):
+        self.bio_fileprefix = 'CMEMS_SGBIO_Dfull_'
+        self.bio_filename = samples_folder + self.bio_fileprefix + str(self.current_datetime.year) + '.nc'
+        self.bio_ncfile = nc.Dataset(self.bio_filename)
+        lat2 = np.array(self.bio_ncfile['latitude'][:])
+        lon2 = np.array(self.bio_ncfile['longitude'][:])
+        [x_cmems, y_cmems] = np.meshgrid(lon2, lat2)
+
+
+        x = np.arange(0, self.nc_file['xc'].shape[0])
+        y = np.arange(0, self.nc_file['yc'].shape[0])
+        [x_pos, y_pos] = np.meshgrid(x, y)
+        [lat1, lon1] = geo2grid(x_pos.flatten(), y_pos.flatten(), 'get_bl')
+        print('running get_bl')
+        lat_grid = np.zeros(lat1.shape[0])
+        lon_grid = np.zeros(lon1.shape[0])
+        for i in range(0, lon1.shape[0]):
+            print(str(i))
+            dist_v = haversine(x_cmems, y_cmems, lon1[i], lat1[i])
+            idx = np.argmin(dist_v)
+            [id_lon, id_lat] = np.unravel_index(idx, dist_v.shape)
+            if (id_lon < x_cmems.shape[1]) & (id_lat < x_cmems.shape[0]):
+                lon_grid[i] = x_cmems[id_lat, id_lon]
+                lat_grid[i] = y_cmems[id_lat, id_lon]
+
+        import matplotlib.pyplot as plt
+        lat_reshape = lat_grid.reshape([y.shape[0], x.shape[0]])
+        lat_reshape[lat_reshape == 0] = np.nan
+        lon_reshape = lon_grid.reshape([y.shape[0], x.shape[0]])
+        lon_reshape[lon_reshape == 0] = np.nan
+        plt.pcolormesh(lat_reshape)
+        plt.colorbar()
+        plt.show()
+        breakpoint()
+
+
+
+
+
+        breakpoint()
+
+
+
+
+
+
+        plt.pcolormesh(self.bio_ncfile['chl'][0,10,:,:])
+
+
     def log_init(self, n, N, x_min, x_max, y_min, y_max, dt, save_step, simulation_steps, save_number):
         self.logger.info('samples_filename = ' + str(self.filename))
         self.logger.info('date_init = ' + str(self.init_datetime))
         self.logger.info('==============================')
         self.logger.info('=========init_params==========')
+        self.logger.info('==============================')
         self.logger.info('1) IBM parameters')
         self.logger.info('n = ' + str(n))
         self.logger.info('N = ' + str(N))
@@ -47,6 +97,7 @@ class SGReader:
         self.logger.info('x_max = ' + str(x_max))
         self.logger.info('y_min = ' + str(y_min))
         self.logger.info('y_max = ' + str(y_max))
+        self.logger.info('==============================')
         self.logger.info('2) Time parameters')
         self.logger.info('duration (days) = ' + str(self.duration))
         self.logger.info('time step (hours) = ' + str(dt))
@@ -178,3 +229,20 @@ def pyproj_geo2grid(x, y, inverse):
     proj = pyproj.Proj(proj=proj4string)
     lon, lat = proj(x, y, inverse=inverse)
     return lon, lat
+
+def haversine(lon1, lat1, lon2, lat2):
+    """
+    Calculate the great circle distance in kilometers between two points
+    on the earth (specified in decimal degrees)
+    """
+    # convert decimal degrees to radians
+    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
+
+    # haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    c = 2 * np.arcsin(np.sqrt(a))
+    r = 6371  # Radius of earth in kilometers. Use 3956 for miles. Determines return value units.
+    return c * r
+

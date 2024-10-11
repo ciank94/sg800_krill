@@ -18,7 +18,7 @@ if remote:
     samples_folder = '/cluster/projects/nn9828k/Cian_sinmod/' + 'sg_phys_states/'
     trajectory_folder = remote_folder + 'trajectory/'
 else:
-    samples_folder = 'E:/fromIngrid/samplefiles_reruns/'
+    samples_folder = 'A:/Cian_sinmod/sg_phys_states/'  # samples_folder = 'E:/fromIngrid/samplefiles_reruns/'
     local_folder = 'C:/Users/ciank/PycharmProjects/sinmod/sg800_krill/'
     trajectory_folder = local_folder + 'trajectory/'
 
@@ -26,7 +26,7 @@ logger.warning('samples folder = ' + samples_folder)
 logger.warning('========================')
 
 # time parameters: #todo: have a date_init variable that calls the correct file
-date_init = datetime.datetime(2017, 5, 1, 21, 0)
+date_init = datetime.datetime(2017, 3, 1, 1, 0)
 duration_days = datetime.timedelta(days=10)  # simulation duration in days;
 minutes = 4
 dt = datetime.timedelta(hours=minutes/60)
@@ -45,6 +45,7 @@ y_max = 610.5
 
 # reader that adds info from current file
 reader_SG = SGReader(trajectory_folder, samples_folder, samples_prefix, duration_days.days, date_init)
+reader_SG.read_bio(samples_folder)
 
 # log init to file
 reader_SG.log_init(n, N, x_min, x_max, y_min, y_max, dt, save_step, simulation_steps, save_number)

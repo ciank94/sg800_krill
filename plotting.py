@@ -28,17 +28,38 @@ class PlotData:
         self.df = nc.Dataset(trajectory_file, mode='r')
         return
 
+    def plot_retention(self):
+        ff = 1
+
+
     def plot_depths(self, skip_t, kk):
         # x_times = np.array(self.df['xp'][:, kk, ::skip_t])
         # y_times = np.array(self.df['yp'][:, kk, ::skip_t])
         z_times = np.array(self.df['zp'][:, kk, ::skip_t])
+        z_vals = np.arange(0, 400, 10)
+        z_paths = np.zeros([z_vals.shape[0], z_times.shape[1]])
+        id_z = np.digitize(z_times[:,:], z_vals)
+        mx_idz = np.max(id_z)
+        for i in range(0, id_z.shape[0]):
+            for j in range(0, id_z.shape[1]):
+                idx_p = id_z[i, j] < mx_idz
+                if idx_p:
+                    z_paths[id_z[i, j], j] += 1
+
+        z_paths = (z_paths/(z_times.shape[0]))*100
+        fig, axs = plt.subplots()
+        z_map = axs.pcolormesh(np.arange(0, z_paths.shape[1]), z_vals[:], z_paths, cmap=plt.get_cmap('hot'), vmax = 30)
+        plt.gca().invert_yaxis()
+        fig.colorbar(z_map)
+        plt.show()
+        breakpoint()
         # t_times = np.array(self.df['temp'][:, kk, ::skip_t])
         # w_times = np.array(self.df['w'][:, kk, ::skip_t])
         # t_times[t_times<-2000] = np.nan
         # w_times[w_times < -2000] = np.nan
         # plt.scatter(t_times, w_times)
-        [plt.plot(z_times[i,:],'b') for i in range(0, 1600)]
-        plt.show()
+        #[plt.plot(z_times[i,:],'b') for i in range(0, 1600)]
+        #plt.show()
         breakpoint()
 
     def plot_dom_pathways(self, skip_t, kk):
@@ -62,6 +83,7 @@ class PlotData:
         cmap = plt.get_cmap('hot')
         cmap.set_bad('gray', 0.4)
         vmax = np.nanmax(dom_vals)/2
+        #vmax=0.0035
         dom_map = axs.pcolormesh(dom_vals, cmap=cmap, alpha=1, vmax=vmax)
         axs.contour(self.depth, levels=self.bath_contours, colors='k', alpha=0.8,
                     linewidths=1.5, zorder=2)
