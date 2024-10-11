@@ -36,31 +36,44 @@ class SGReader:
         return
 
     def read_bio(self, samples_folder):
+        import matplotlib.pyplot as plt
         self.bio_fileprefix = 'CMEMS_SGBIO_Dfull_'
         self.bio_filename = samples_folder + self.bio_fileprefix + str(self.current_datetime.year) + '.nc'
         self.bio_ncfile = nc.Dataset(self.bio_filename)
         lat2 = np.array(self.bio_ncfile['latitude'][:])
         lon2 = np.array(self.bio_ncfile['longitude'][:])
+        chl = np.array(self.bio_ncfile['chl'][0,0,:,:])
+        chl[chl>10000] = np.nan
         [x_cmems, y_cmems] = np.meshgrid(lon2, lat2)
 
 
         x = np.arange(0, self.nc_file['xc'].shape[0])
         y = np.arange(0, self.nc_file['yc'].shape[0])
-        [x_pos, y_pos] = np.meshgrid(x, y)
-        [lat1, lon1] = geo2grid(x_pos.flatten(), y_pos.flatten(), 'get_bl')
+        [y_pos, x_pos] = np.meshgrid(y, x)
+        [lat1, lon1] = geo2grid(y_pos.flatten(), x_pos.flatten(), 'get_bl')
         print('running get_bl')
-        lat_grid = np.zeros(lat1.shape[0])
-        lon_grid = np.zeros(lon1.shape[0])
-        for i in range(0, lon1.shape[0]):
-            print(str(i))
-            dist_v = haversine(x_cmems, y_cmems, lon1[i], lat1[i])
-            idx = np.argmin(dist_v)
-            [id_lon, id_lat] = np.unravel_index(idx, dist_v.shape)
-            if (id_lon < x_cmems.shape[1]) & (id_lat < x_cmems.shape[0]):
-                lon_grid[i] = x_cmems[id_lat, id_lon]
-                lat_grid[i] = y_cmems[id_lat, id_lon]
 
-        import matplotlib.pyplot as plt
+        lat_re = lat1.reshape([x.shape[0], y.shape[0]])
+        lon_re = lon1.reshape([x.shape[0], y.shape[0]])
+        lat_grid = np.zeros(lat_re.shape)
+        lon_grid = np.zeros(lon_re.shape)
+        for i in range(0, lat_re.shape[0]):
+            print(str(i))
+            for j in range(0, lat_re.shape[1]):
+                dist_v = haversine(x_cmems, y_cmems, lon_re[i, j], lat_re[i, j])
+                idx = np.argmin(dist_v)
+                [id_lon, id_lat] = np.unravel_index(idx, dist_v.shape)
+                if (id_lon < x_cmems.shape[0]) & (id_lat < x_cmems.shape[1]):
+                    lon_grid[i, j] = x_cmems[id_lon, id_lat]
+                    lat_grid[i, j] = y_cmems[id_lon, id_lat]
+                    lon_grid[i, j] = chl[id_lon, id_lat]
+                    lat_grid[i, j] = id_lat
+
+
+        # next step: for each id_lon and id_lat above- find chl value and add depth and interpolate- smoothing filter;
+
+        breakpoint()
+        plt.pcolormesh(lon_grid)
         lat_reshape = lat_grid.reshape([y.shape[0], x.shape[0]])
         lat_reshape[lat_reshape == 0] = np.nan
         lon_reshape = lon_grid.reshape([y.shape[0], x.shape[0]])
