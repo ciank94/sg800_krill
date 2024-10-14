@@ -28,8 +28,104 @@ class PlotData:
         self.df = nc.Dataset(trajectory_file, mode='r')
         return
 
+
+
     def plot_retention(self):
-        ff = 1
+        x_min = 210.0  # coordinates for initialization; todo: make initialization
+        x_max = 610.4
+        y_min = 210.0
+        y_max = 610.5
+        skip_t= 1
+        fig, axs = plt.subplots(1,1)
+        counter = -1
+        clrs = ['r', 'k', 'b']
+        for kk in [2, 0, 3, 6]:
+            counter = 0
+            x_times = np.array(self.df['xp'][:, kk, ::skip_t])
+            y_times = np.array(self.df['yp'][:, kk, ::skip_t])
+            exit_ind = np.zeros(x_times.shape[0])
+            for ii in range(0, x_times.shape[0]):
+                id_ret = (x_times[ii, :] < x_min) | (x_times[ii, :] > x_max) | (y_times[ii, :] > y_max) | (
+                            y_times[ii, :] < y_min)
+                if np.sum(id_ret) > 0:
+                    exit_ind[ii] = np.where(id_ret)[0][0]
+
+            print('n individuals leaving' + str(np.sum(exit_ind>0)))
+
+            exit_time = np.zeros(x_times.shape[1])
+            for jj in range(0, x_times.shape[1]):
+                id_ret = (x_times[:, jj] < x_min) | (x_times[:, jj] > x_max) | (y_times[:, jj] > y_max) | (
+                            y_times[:, jj] < y_min)
+                exit_time[jj] = np.sum(id_ret)
+                x_times[id_ret, :] = np.nan
+                y_times[id_ret, :] = np.nan
+
+            axs.plot(np.cumsum(exit_time))
+
+        axs.set_xlabel('time step')
+        axs.set_ylabel('n of individuals leaving')
+
+        plt.legend(['w=0', 'w=0.06', 'w=0.12', 'w=0.18'])
+        plt.show()
+
+        breakpoint()
+
+    def plot_temp(self):
+
+        fig, axs = plt.subplots()
+        for kk in [2, 0, 3, 6]:
+            t = np.array(self.df['w'][:, kk, :])
+            t[t < -3000] = np.nan
+            axs.plot(np.nanmean(t, 0))
+
+        axs.set_xlabel('time step')
+        axs.set_ylabel('w (m/s)')
+        plt.legend(['w=0', 'w=0.06', 'w=0.12', 'w=0.18'])
+        plt.show()
+        breakpoint()
+        ff=1
+        fig, axs = plt.subplots(4, 1)
+        counter = -1
+        for kk in [2, 0, 3, 6]:
+            counter += 1
+            w_save = np.array(self.df['w'][:, kk, :])
+            w_save[w_save < -3000] = np.nan
+            axs[counter].hist(w_save.flatten(), bins=50)
+
+        plt.show()
+
+
+
+        fig, axs = plt.subplots(4, 1)
+        counter = -1
+        for kk in [2, 0, 3, 6]:
+            counter += 1
+            t = np.array(self.df['temp'][:, kk, :])
+            t[t < -3000] = np.nan
+            axs[counter].hist(t.flatten(),  bins=50)
+
+        #axs.set_xlabel('temp (C)')
+        #axs.set_ylabel('frequency')
+        #plt.legend(['w=0', 'w=0.06', 'w=0.12', 'w=0.18'])
+        plt.show()
+        breakpoint()
+
+
+
+        fig, axs = plt.subplots()
+        for kk in [2, 0, 3, 6]:
+            t = np.array(self.df['temp'][:, kk, :])
+            t[t < -3000] = np.nan
+            axs.plot(np.nanmean(t, 0))
+
+        axs.set_xlabel('time step')
+        axs.set_ylabel('temp (C)')
+        plt.legend(['w=0', 'w=0.06', 'w=0.12', 'w=0.18'])
+        plt.show()
+
+
+        breakpoint()
+        #np.array(self.df['yp'][:, kk, ::skip_t])
 
 
     def plot_depths(self, skip_t, kk):

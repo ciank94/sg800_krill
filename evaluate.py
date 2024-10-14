@@ -21,11 +21,15 @@ time_prefix = 'trajectory_20170501_d30'
 pl.read_trajectory_file(file_prefix=time_prefix)
 
 # plot depths:
-#pl.plot_depths(skip_t=1, kk=3)
+#pl.plot_depths(skip_t=1, kk=6)
+
+# plot temperature, speeds etc.
+pl.plot_temp()
 
 # first plots: environment and trajectories over time;
 #pl.plot_currents()
 #pl.plot_trajectory_color(skip_n=1, skip_t=3, kk=0)
+#pl.plot_retention()
 
 # dom_pathways plots:
 #pl.plot_dom_pathways(skip_t=1, kk=slice(0,10,1))

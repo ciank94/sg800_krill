@@ -82,6 +82,7 @@ class SGReader:
         plt.colorbar()
         plt.show()
         breakpoint()
+        return
 
 
 
