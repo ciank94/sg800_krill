@@ -16,15 +16,20 @@ save_folder = local_directory + 'figures/'
 # initialise plotting class
 pl = PlotData(save_folder, trajectory_folder)
 
+
 # read the file that needs reading: #todo: functions that call different files, determines number of plots and saves if time
 time_prefix = 'trajectory_20170501_d30'
 pl.read_trajectory_file(file_prefix=time_prefix)
+breakpoint()
 
+pl.plot_anomalies(skip_t=1, kk=0)
+
+#pl.plot_depth_region(skip_t=1, kk=6)
 # plot depths:
 #pl.plot_depths(skip_t=1, kk=6)
 
 # plot temperature, speeds etc.
-pl.plot_temp()
+#pl.plot_temp()
 
 # first plots: environment and trajectories over time;
 #pl.plot_currents()

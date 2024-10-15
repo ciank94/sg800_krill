@@ -158,6 +158,95 @@ class PlotData:
         #plt.show()
         breakpoint()
 
+
+    def plot_depth_region(self, skip_t, kk):
+        x_times = np.array(self.df['xp'][:,kk, ::skip_t])
+        y_times = np.array(self.df['yp'][:,kk, ::skip_t])
+        z_times = np.array(self.df['zp'][:, kk, ::skip_t])
+        x_times[x_times>1000] = np.nan
+        y_times[y_times > 1000] = np.nan
+        z_times[z_times > 1000] = np.nan
+        dom_vals = np.zeros(self.depth.shape)
+        dom_vals[:] = self.depth[:]
+        dom_vals[~np.isnan(dom_vals)] = 0
+        dom_vals2 = np.zeros(self.depth.shape)
+        dom_vals2[:] = self.depth[:]
+        dom_vals2[~np.isnan(dom_vals)] = 0
+
+        for p in range(0, x_times.shape[0]):
+            xp = x_times[p, :]
+            yp = y_times[p, :]
+            id_p = ~np.isnan(xp)
+            dom_vals[yp[id_p].astype(int), xp[id_p].astype(int)] += 1
+            dom_vals2[yp[id_p].astype(int), xp[id_p].astype(int)] += z_times[p, id_p]
+
+        dom_vals2[dom_vals2>0] /= dom_vals[dom_vals2>0]
+        print(str(x_times.shape[1]))
+        #dom_vals[(dom_vals==0)] = np.nan
+        fig, axs = plt.subplots(figsize=(12, 8), layout='constrained')
+        cmap = plt.get_cmap('hot')
+        cmap.set_bad('gray', 0.4)
+        vmax = np.nanmax(dom_vals2)#/2
+        #vmax=0.0035
+        dom_map = axs.pcolormesh(dom_vals2, cmap=cmap, alpha=1, vmax=vmax)
+        axs.contour(self.depth, levels=self.bath_contours, colors='k', alpha=0.8,
+                    linewidths=1.5, zorder=2)
+        cbar = fig.colorbar(dom_map)
+        cbar.ax.tick_params(labelsize=12)
+        cbar.ax.set_ylabel('depth (m)', loc='center', size=12, weight='bold')
+        self.save_plot(plt_name='depth_region')
+        breakpoint()
+        return
+
+
+    def plot_anomalies(self, skip_t, kk):
+        x_times = np.array(self.df['xp'][:, 2, ::skip_t])
+        y_times = np.array(self.df['yp'][:, 2, ::skip_t])
+        x_times[x_times > 1000] = np.nan
+        y_times[y_times > 1000] = np.nan
+        ref_dom_vals = np.zeros(self.depth.shape)
+        ref_dom_vals[:] = self.depth[:]
+        ref_dom_vals[~np.isnan(ref_dom_vals)] = 0
+        for p in range(0, x_times.shape[0]):
+            xp = x_times[p, :]
+            yp = y_times[p, :]
+            id_p = ~np.isnan(xp)
+            ref_dom_vals[yp[id_p].astype(int), xp[id_p].astype(int)] += 1
+
+        ref_dom_vals[~np.isnan(ref_dom_vals)] /= (x_times.shape[0] * x_times.shape[1])
+
+
+        x_times = np.array(self.df['xp'][:,kk, ::skip_t])
+        y_times = np.array(self.df['yp'][:,kk, ::skip_t])
+        x_times[x_times>1000] = np.nan
+        y_times[y_times > 1000] = np.nan
+        dom_vals = np.zeros(self.depth.shape)
+        dom_vals[:] = self.depth[:]
+        dom_vals[~np.isnan(dom_vals)] = 0
+        for p in range(0, x_times.shape[0]):
+            xp = x_times[p, :]
+            yp = y_times[p, :]
+            id_p = ~np.isnan(xp)
+            dom_vals[yp[id_p].astype(int), xp[id_p].astype(int)] += 1
+
+        dom_vals[~np.isnan(dom_vals)] /= (x_times.shape[0]*x_times.shape[1])
+
+        anom_vals = dom_vals - ref_dom_vals
+        #dom_vals[(dom_vals==0)] = np.nan
+        fig, axs = plt.subplots(figsize=(12, 8), layout='constrained')
+        cmap = plt.get_cmap('bwr')
+        cmap.set_bad('gray', 0.4)
+        vmax = np.nanmax(anom_vals)/2
+        #vmax=0.0035
+        dom_map = axs.pcolormesh(anom_vals, cmap=cmap, alpha=1)
+        axs.contour(self.depth, levels=self.bath_contours, colors='k', alpha=0.8,
+                    linewidths=1.5, zorder=2)
+        cbar = fig.colorbar(dom_map)
+        cbar.ax.tick_params(labelsize=12)
+        cbar.ax.set_ylabel('probability (%)', loc='center', size=12, weight='bold')
+        self.save_plot(plt_name='anom_paths')
+        return
+
     def plot_dom_pathways(self, skip_t, kk):
         x_times = np.array(self.df['xp'][:,kk, ::skip_t])
         y_times = np.array(self.df['yp'][:,kk, ::skip_t])
