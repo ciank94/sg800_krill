@@ -20,9 +20,9 @@ pl = PlotData(save_folder, trajectory_folder)
 # read the file that needs reading: #todo: functions that call different files, determines number of plots and saves if time
 time_prefix = 'trajectory_20170501_d30'
 pl.read_trajectory_file(file_prefix=time_prefix)
-breakpoint()
+#breakpoint()
 
-pl.plot_anomalies(skip_t=1, kk=0)
+#pl.plot_anomalies(skip_t=1, kk=0)
 
 #pl.plot_depth_region(skip_t=1, kk=6)
 # plot depths:
@@ -37,7 +37,7 @@ pl.plot_anomalies(skip_t=1, kk=0)
 #pl.plot_retention()
 
 # dom_pathways plots:
-#pl.plot_dom_pathways(skip_t=1, kk=slice(0,10,1))
+pl.plot_dom_pathways(skip_t=1, kk=slice(3,4,1))
 
 
 

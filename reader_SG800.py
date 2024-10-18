@@ -2,6 +2,7 @@ import math
 import numpy as np
 import pyproj
 import netCDF4 as nc
+import os
 import datetime
 from netCDF4 import num2date, date2num
 import logging
@@ -33,69 +34,51 @@ class SGReader:
             datefmt='%H:%M:%S'
         )
         self.logger.info('opening new SG file: ' + self.filename)
+
+        # mapping between PISCES grid and SINMOD
+        self.lon_mapping = samples_folder + 'lon_mapping_' + str(self.current_datetime.year) + '.npy'
+        self.lat_mapping = samples_folder + 'lat_mapping_' + str(self.current_datetime.year) + '.npy'
+        if not os.path.exists(self.lon_mapping):
+            self.read_bio(samples_folder)
+
         return
 
     def read_bio(self, samples_folder):
-        import matplotlib.pyplot as plt
         self.bio_fileprefix = 'CMEMS_SGBIO_Dfull_'
         self.bio_filename = samples_folder + self.bio_fileprefix + str(self.current_datetime.year) + '.nc'
         self.bio_ncfile = nc.Dataset(self.bio_filename)
         lat2 = np.array(self.bio_ncfile['latitude'][:])
         lon2 = np.array(self.bio_ncfile['longitude'][:])
-        chl = np.array(self.bio_ncfile['chl'][0,0,:,:])
-        chl[chl>10000] = np.nan
         [x_cmems, y_cmems] = np.meshgrid(lon2, lat2)
-
-
         x = np.arange(0, self.nc_file['xc'].shape[0])
         y = np.arange(0, self.nc_file['yc'].shape[0])
         [y_pos, x_pos] = np.meshgrid(y, x)
         [lat1, lon1] = geo2grid(y_pos.flatten(), x_pos.flatten(), 'get_bl')
-        print('running get_bl')
+        self.logger.info('opening biology file ' + self.bio_filename)
 
         lat_re = lat1.reshape([x.shape[0], y.shape[0]])
         lon_re = lon1.reshape([x.shape[0], y.shape[0]])
         lat_grid = np.zeros(lat_re.shape)
         lon_grid = np.zeros(lon_re.shape)
         for i in range(0, lat_re.shape[0]):
-            print(str(i))
             for j in range(0, lat_re.shape[1]):
                 dist_v = haversine(x_cmems, y_cmems, lon_re[i, j], lat_re[i, j])
                 idx = np.argmin(dist_v)
                 [id_lon, id_lat] = np.unravel_index(idx, dist_v.shape)
                 if (id_lon < x_cmems.shape[0]) & (id_lat < x_cmems.shape[1]):
-                    lon_grid[i, j] = x_cmems[id_lon, id_lat]
-                    lat_grid[i, j] = y_cmems[id_lon, id_lat]
-                    lon_grid[i, j] = chl[id_lon, id_lat]
+                    lon_grid[i, j] = id_lon
                     lat_grid[i, j] = id_lat
 
+        np.save(self.lon_mapping, lon_grid)
+        np.save(self.lat_mapping, lat_grid)
+        self.logger.info('saved mapping from ' + self.bio_filename)
 
-        # next step: for each id_lon and id_lat above- find chl value and add depth and interpolate- smoothing filter;
-
-        breakpoint()
-        plt.pcolormesh(lon_grid)
-        lat_reshape = lat_grid.reshape([y.shape[0], x.shape[0]])
-        lat_reshape[lat_reshape == 0] = np.nan
-        lon_reshape = lon_grid.reshape([y.shape[0], x.shape[0]])
-        lon_reshape[lon_reshape == 0] = np.nan
-        plt.pcolormesh(lat_reshape)
-        plt.colorbar()
-        plt.show()
-        breakpoint()
-        return
+        #todo: mapping between times and depth i.e. save a mapping from SINMOD time index->PISCES time index and
+        # from SINMOD depth index -> PISCES depth index; then test that it works on server;
 
 
 
 
-
-        breakpoint()
-
-
-
-
-
-
-        plt.pcolormesh(self.bio_ncfile['chl'][0,10,:,:])
 
 
     def log_init(self, n, N, x_min, x_max, y_min, y_max, dt, save_step, simulation_steps, save_number):
