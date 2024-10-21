@@ -8,8 +8,37 @@ from netCDF4 import num2date, date2num
 import logging
 
 class SGReader:
-    def __init__(self, trajectory_folder, samples_folder, samples_prefix, duration, date_init):
-        self.filename = (samples_folder + samples_prefix + str(date_init.year) + "{:02d}".format(date_init.month) + '.nc')
+
+    def __init__(self, remote, test, bio_mapping, temp_beh, dvm_beh, feed_beh):
+        # initialise switches for model parameterisation:
+        self.remote = remote
+        self.test = test
+        self.bio_mapping = bio_mapping
+        self.temp_beh = temp_beh
+        self.dvm_beh = dvm_beh
+        self.feed_beh = feed_beh
+        self.logger = logging.getLogger(__name__) # initiate logger
+        self.logger.warning('========================')
+        self.logger.warning('Beginning new simulation ')
+        return
+
+    def file_explorer(self):
+        self.samples_prefix = 'samplesNSEW_'
+        if self.remote:
+            remote_folder = '/cluster/projects/nn9828k/Cian_sinmod/sg800_krill/'
+            self.samples_folder = '/cluster/projects/nn9828k/Cian_sinmod/' + 'sg_phys_states/'
+            self.trajectory_folder = remote_folder + 'trajectory/'
+        else:
+            self.samples_folder = 'A:/Cian_sinmod/sg_phys_states/'  # samples_folder = 'E:/fromIngrid/samplefiles_reruns/'
+            local_folder = 'C:/Users/ciank/PycharmProjects/sinmod/sg800_krill/'
+            self.trajectory_folder = local_folder + 'trajectory/'
+
+        self.logger.warning('samples folder = ' + self.samples_folder)
+        self.logger.warning('========================')
+        return
+
+    def init_time(self, duration, date_init):
+        self.filename = (self.samples_folder + self.samples_prefix + str(date_init.year) + "{:02d}".format(date_init.month) + '.nc')
         self.nc_file = nc.Dataset(self.filename)
         self.init_datetime = date_init
         self.duration = duration
@@ -22,64 +51,71 @@ class SGReader:
         current_datenum = date2num(self.current_datetime, self.nc_file['time'].units)
         self.time_index = np.argmin((current_datenum-self.nc_file['time'][:])**2)
         # set up logging to file
-        self.logger = logging.getLogger(__name__)
         log_filename = 'logger_' + str(date_init.year) + "{:02d}".format(
             date_init.month) + "{:02d}".format(date_init.day) + '_d' + str(duration)
         logging.basicConfig(
-            filename=trajectory_folder + log_filename + '.log',
+            filename=self.trajectory_folder + log_filename + '.log',
             level=logging.INFO,
             filemode='w',
-            #format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
+            # format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
             format='[%(asctime)s] - %(name)s - %(levelname)s - %(message)s',
             datefmt='%H:%M:%S'
         )
         self.logger.info('opening new SG file: ' + self.filename)
 
-        # mapping between PISCES grid and SINMOD
-        self.lon_mapping = samples_folder + 'lon_mapping_' + str(self.current_datetime.year) + '.npy'
-        self.lat_mapping = samples_folder + 'lat_mapping_' + str(self.current_datetime.year) + '.npy'
-        if not os.path.exists(self.lon_mapping):
-            self.read_bio(samples_folder)
-
         return
 
-    def read_bio(self, samples_folder):
+    def read_bio(self):
         self.bio_fileprefix = 'CMEMS_SGBIO_Dfull_'
-        self.bio_filename = samples_folder + self.bio_fileprefix + str(self.current_datetime.year) + '.nc'
-        self.bio_ncfile = nc.Dataset(self.bio_filename)
-        lat2 = np.array(self.bio_ncfile['latitude'][:])
-        lon2 = np.array(self.bio_ncfile['longitude'][:])
-        [x_cmems, y_cmems] = np.meshgrid(lon2, lat2)
-        x = np.arange(0, self.nc_file['xc'].shape[0])
-        y = np.arange(0, self.nc_file['yc'].shape[0])
-        [y_pos, x_pos] = np.meshgrid(y, x)
-        [lat1, lon1] = geo2grid(y_pos.flatten(), x_pos.flatten(), 'get_bl')
+        self.bio_filename = self.samples_folder + self.bio_fileprefix + str(self.current_datetime.year) + '.nc'
         self.logger.info('opening biology file ' + self.bio_filename)
+        self.bio_ncfile = nc.Dataset(self.bio_filename)
+        self.bio_index = np.argmin(
+            (date2num(self.current_datetime, self.bio_ncfile['time'].units) - self.bio_ncfile['time'][:]) ** 2)
 
-        lat_re = lat1.reshape([x.shape[0], y.shape[0]])
-        lon_re = lon1.reshape([x.shape[0], y.shape[0]])
-        lat_grid = np.zeros(lat_re.shape)
-        lon_grid = np.zeros(lon_re.shape)
-        for i in range(0, lat_re.shape[0]):
-            for j in range(0, lat_re.shape[1]):
-                dist_v = haversine(x_cmems, y_cmems, lon_re[i, j], lat_re[i, j])
-                idx = np.argmin(dist_v)
-                [id_lon, id_lat] = np.unravel_index(idx, dist_v.shape)
-                if (id_lon < x_cmems.shape[0]) & (id_lat < x_cmems.shape[1]):
-                    lon_grid[i, j] = id_lon
-                    lat_grid[i, j] = id_lat
+        # mapping between PISCES grid and SINMOD
+        self.lon_mapping = self.samples_folder + 'lon_mapping_' + str(self.current_datetime.year) + '.npy'
+        self.lat_mapping = self.samples_folder + 'lat_mapping_' + str(self.current_datetime.year) + '.npy'
+        self.depth_mapping = self.samples_folder + 'depth_mapping_' + str(self.current_datetime.year) + '.npy'
 
-        np.save(self.lon_mapping, lon_grid)
-        np.save(self.lat_mapping, lat_grid)
-        self.logger.info('saved mapping from ' + self.bio_filename)
+        if self.bio_mapping:
+            self.logger.info('creating mapping from ' + self.bio_filename)
+            lat2 = np.array(self.bio_ncfile['latitude'][:])
+            lon2 = np.array(self.bio_ncfile['longitude'][:])
+            [x_cmems, y_cmems] = np.meshgrid(lon2, lat2)
+            x = np.arange(0, self.nc_file['xc'].shape[0])
+            y = np.arange(0, self.nc_file['yc'].shape[0])
+            [y_pos, x_pos] = np.meshgrid(y, x)
+            [lat1, lon1] = geo2grid(y_pos.flatten(), x_pos.flatten(), 'get_bl')
+            lat_re = lat1.reshape([x.shape[0], y.shape[0]])
+            lon_re = lon1.reshape([x.shape[0], y.shape[0]])
+            lat_grid = np.zeros(lat_re.shape)
+            lon_grid = np.zeros(lon_re.shape)
+            for i in range(0, lat_re.shape[0]):
+                for j in range(0, lat_re.shape[1]):
+                    dist_v = haversine(x_cmems, y_cmems, lon_re[i, j], lat_re[i, j])
+                    idx = np.argmin(dist_v)
+                    [id_lon, id_lat] = np.unravel_index(idx, dist_v.shape)
+                    if (id_lon < x_cmems.shape[0]) & (id_lat < x_cmems.shape[1]):
+                        lon_grid[i, j] = id_lon  # value for where we should look in bio_file chl(id_lon, id_lat)
+                        lat_grid[i, j] = id_lat
 
-        #todo: mapping between times and depth i.e. save a mapping from SINMOD time index->PISCES time index and
-        # from SINMOD depth index -> PISCES depth index; then test that it works on server;
+            depth_bio = self.bio_ncfile['depth'][:]
+            depth_layers = np.cumsum(self.nc_file['LayerDepths'][:])
+            depth_grid = np.zeros(depth_layers.shape[0])
+            for ii in range(0, depth_layers.shape[0]):
+                idx_layer = np.argmin((depth_layers[ii] - depth_bio) ** 2)
+                depth_grid[ii] = idx_layer
 
-
-
-
-
+            np.save(self.depth_mapping, depth_grid)
+            np.save(self.lon_mapping, lon_grid)
+            np.save(self.lat_mapping, lat_grid)
+            self.logger.info('saved mapping from ' + self.bio_filename)
+        self.logger.info('loading mapping from ' + self.bio_filename)
+        self.lon_id = np.load(self.lon_mapping)
+        self.lat_id = np.load(self.lat_mapping)
+        self.dep_id = np.load(self.depth_mapping)
+        return
 
     def log_init(self, n, N, x_min, x_max, y_min, y_max, dt, save_step, simulation_steps, save_number):
         self.logger.info('samples_filename = ' + str(self.filename))
@@ -104,16 +140,25 @@ class SGReader:
         self.logger.info('==============================')
         return
 
-    def update_time(self, dt, test, samples_folder, samples_prefix):
+    def update_time(self, dt):
         self.current_datetime += dt
         if self.current_datetime.month != self.file_month:
             self.nc_file.close()
-            self.update_file_month(samples_folder=samples_folder, samples_prefix=samples_prefix)
+            self.update_file_month(samples_folder=self.samples_folder, samples_prefix=self.samples_prefix)
             new_file = True
         else:
             new_file = False
 
-        if test:
+        bio_date = num2date(self.bio_ncfile['time'][self.bio_index], self.bio_ncfile['time'].units)
+
+        #todo: fix the time for updating biology time;
+        if (self.current_datetime.day != bio_date.day) | new_file:
+            self.bio_index = np.argmin(
+                (date2num(self.current_datetime, self.bio_ncfile['time'].units) - self.bio_ncfile['time'][:]) ** 2)
+            bio_date = num2date(self.bio_ncfile['time'][self.bio_index], self.bio_ncfile['time'].units)
+            self.logger.info('new date for biology: ' + str(bio_date))
+
+        if self.test:
             if (self.current_datetime.day != self.time[self.time_index].day) | new_file:
                 current_datenum = date2num(self.current_datetime, self.nc_file['time'].units)
                 self.time_index = np.argmin((current_datenum - self.nc_file['time'][:]) ** 2)

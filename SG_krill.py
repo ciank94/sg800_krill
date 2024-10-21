@@ -68,7 +68,7 @@ class Krill:
             self.u_east = np.array(nc_file['u_east'][time_index, :, :, :])
             self.v_north = np.array(nc_file['v_north'][time_index, :, :, :])
             self.temp = np.array(nc_file['temperature'][time_index, :, :, :])
-            self.temp[self.temp <- 3000]=np.nan
+            self.temp[self.temp < -3000] = np.nan
             self.v_north[self.v_north < -3000] = np.nan
             self.u_east[self.u_east < -3000] = np.nan
             self.load_counter = time_index
