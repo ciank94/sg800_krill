@@ -247,6 +247,46 @@ class PlotData:
         self.save_plot(plt_name='anom_paths')
         return
 
+    def plot_growth(self, skip_t, kk):
+        x_times = np.array(self.df['xp'][:, kk, ::skip_t])
+        y_times = np.array(self.df['yp'][:, kk, ::skip_t])
+        growth = np.array(self.df['growth'][:, kk, ::skip_t])
+
+        x_times[x_times > 1000] = np.nan
+        y_times[y_times > 1000] = np.nan
+        growth[growth < -1000] = np.nan
+        dom_vals = np.zeros(self.depth.shape)
+        dom_vals[:] = self.depth[:]
+        dom_vals[~np.isnan(dom_vals)] = 0
+        dom_vals_count = np.zeros(dom_vals.shape)
+        dom_vals_count[:] = self.depth[:]
+        dom_vals_count[~np.isnan(dom_vals)] = 0
+        x_times[x_times >= self.i_max] = self.i_max - 1
+        y_times[y_times >= self.j_max] = self.j_max - 1
+        for p in range(0, x_times.shape[0]):
+            xp = x_times[p, :]
+            yp = y_times[p, :]
+            id_p = (~np.isnan(xp)) & (~np.isnan(growth[p,:]))
+            dom_vals[yp[id_p].astype(int), xp[id_p].astype(int)] += growth[p, id_p]
+            dom_vals_count[yp[id_p].astype(int), xp[id_p].astype(int)] += 1
+
+        dom_vals[(dom_vals>0)&(dom_vals_count>0)] /= dom_vals_count[(dom_vals>0)&(dom_vals_count>0)]
+        #print(str(x_times.shape[1]))
+        # dom_vals[(dom_vals==0)] = np.nan
+        fig, axs = plt.subplots(figsize=(12, 8), layout='constrained')
+        cmap = plt.get_cmap('Greens')
+        cmap.set_bad('gray', 0.4)
+        vmax = np.nanmax(dom_vals) / 1.35
+        # vmax=0.0035
+        dom_map = axs.pcolormesh(dom_vals, cmap=cmap, alpha=1, vmax=vmax)
+        axs.contour(self.depth, levels=self.bath_contours, colors='k', alpha=0.8,
+                    linewidths=1.5, zorder=2)
+        cbar = fig.colorbar(dom_map)
+        cbar.ax.tick_params(labelsize=12)
+        cbar.ax.set_ylabel('growth (mm day**-1)', loc='center', size=12, weight='bold')
+        self.save_plot(plt_name='growth')
+        return
+
     def plot_dom_pathways(self, skip_t, kk):
         x_times = np.array(self.df['xp'][:,kk, ::skip_t])
         y_times = np.array(self.df['yp'][:,kk, ::skip_t])
@@ -255,10 +295,13 @@ class PlotData:
         dom_vals = np.zeros(self.depth.shape)
         dom_vals[:] = self.depth[:]
         dom_vals[~np.isnan(dom_vals)] = 0
+        x_times[x_times>=self.i_max] = self.i_max-1
+        y_times[y_times >= self.j_max] = self.j_max-1
         for p in range(0, x_times.shape[0]):
             xp = x_times[p, :]
             yp = y_times[p, :]
             id_p = ~np.isnan(xp)
+
             dom_vals[yp[id_p].astype(int), xp[id_p].astype(int)] += 1
 
         dom_vals[~np.isnan(dom_vals)] /= (x_times.shape[0]*x_times.shape[1])

@@ -11,15 +11,19 @@ class SGReader:
 
     def __init__(self, remote, test, bio_mapping, temp_beh, dvm_beh, feed_beh):
         # initialise switches for model parameterisation:
+        self.logger = logging.getLogger(__name__)  # initiate logger
+        self.logger.warning('========================')
+        self.logger.warning('Beginning new simulation ')
         self.remote = remote
         self.test = test
         self.bio_mapping = bio_mapping
         self.temp_beh = temp_beh
         self.dvm_beh = dvm_beh
+        if (self.dvm_beh) & (self.temp_beh):
+            self.temp_beh = False
+            self.logger.warning('dvm_beh overriding temp_beh')
         self.feed_beh = feed_beh
-        self.logger = logging.getLogger(__name__) # initiate logger
-        self.logger.warning('========================')
-        self.logger.warning('Beginning new simulation ')
+
         return
 
     def file_explorer(self):
@@ -58,9 +62,12 @@ class SGReader:
             level=logging.INFO,
             filemode='w',
             # format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
-            format='[%(asctime)s] - %(name)s - %(levelname)s - %(message)s',
+            #format='[%(asctime)s] - %(name)s - %(levelname)s - %(message)s',
+            format='[%(asctime)s] - %(message)s',
             datefmt='%H:%M:%S'
         )
+        self.logger.info('========================')
+        self.logger.info('=======filepaths========')
         self.logger.info('opening new SG file: ' + self.filename)
 
         return
@@ -118,12 +125,25 @@ class SGReader:
         return
 
     def log_init(self, n, N, x_min, x_max, y_min, y_max, dt, save_step, simulation_steps, save_number):
+        self.n = n
+        self.N = N
+        self.x_min = x_min
+        self.x_max = x_max
+        self.y_min = y_min
+        self.y_max = y_max
+        self.save_number = int(save_number)
+        self.dt = dt
         self.logger.info('samples_filename = ' + str(self.filename))
         self.logger.info('date_init = ' + str(self.init_datetime))
         self.logger.info('==============================')
         self.logger.info('=========init_params==========')
+        self.logger.info('Switches')
+        self.logger.info('test = ' + str(self.test))
+        self.logger.info('dvm_beh = ' + str(self.dvm_beh))
+        self.logger.info('feed_beh = ' + str(self.dvm_beh))
+        self.logger.info('temp_beh = ' + str(self.temp_beh))
         self.logger.info('==============================')
-        self.logger.info('1) IBM parameters')
+        self.logger.info('IBM parameters')
         self.logger.info('n = ' + str(n))
         self.logger.info('N = ' + str(N))
         self.logger.info('x_min = ' + str(x_min))
@@ -131,7 +151,7 @@ class SGReader:
         self.logger.info('y_min = ' + str(y_min))
         self.logger.info('y_max = ' + str(y_max))
         self.logger.info('==============================')
-        self.logger.info('2) Time parameters')
+        self.logger.info('Time parameters')
         self.logger.info('duration (days) = ' + str(self.duration))
         self.logger.info('time step (hours) = ' + str(dt))
         self.logger.info('save step (hours) = ' + str(save_step))
@@ -151,12 +171,10 @@ class SGReader:
 
         bio_date = num2date(self.bio_ncfile['time'][self.bio_index], self.bio_ncfile['time'].units)
 
-        #todo: fix the time for updating biology time;
         if (self.current_datetime.day != bio_date.day) | new_file:
             self.bio_index = np.argmin(
                 (date2num(self.current_datetime, self.bio_ncfile['time'].units) - self.bio_ncfile['time'][:]) ** 2)
-            bio_date = num2date(self.bio_ncfile['time'][self.bio_index], self.bio_ncfile['time'].units)
-            self.logger.info('new date for biology: ' + str(bio_date))
+            #bio_date = num2date(self.bio_ncfile['time'][self.bio_index], self.bio_ncfile['time'].units)
 
         if self.test:
             if (self.current_datetime.day != self.time[self.time_index].day) | new_file:

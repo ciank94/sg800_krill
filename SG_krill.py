@@ -1,12 +1,7 @@
-from netCDF4 import num2date, date2num
+from netCDF4 import date2num
 import netCDF4 as nc
 import numpy as np
 import matplotlib.pyplot as plt
-import logging
-from joblib import Parallel, delayed
-from numba import njit
-import os
-
 
 class Krill:
     def __init__(self, nc_file):
@@ -17,36 +12,44 @@ class Krill:
         self.depth[self.depth>10000] = np.nan
         self.res = 800
         self.load_counter = -1
+        self.bio_load_counter = -1
         self.init_temp = False
-        self.logger = logging.getLogger(__name__)
+        self.kpar = 0.2  # mg m^-3
+        self.gpar = 0.044   # mg mm^-2 day^-1 (assimilate ad libitum)
+        self.lpar = 40  # mm
+        self.lmax = 60  # mm
+        self.r_ref = 0.0035  # day -1
+        self.T_A = 8000      # K
+        degC = 0        # C
+        self.T_1 = degC + 273.15
         return
 
-    def init_temp_response(self, N):
-        sqN_int = np.sqrt(N).astype(int)
+    def init_temp_response(self, readerSG):
+        sqN_int = np.sqrt(readerSG.N).astype(int)
         t_scale = np.linspace(-1.5, 1.5, sqN_int)
-        w_scale = np.linspace(1, np.sqrt(N), sqN_int)
+        w_scale = np.linspace(1, np.sqrt(readerSG.N), sqN_int)
         [t_vals, w_vals] = np.meshgrid(t_scale, w_scale)
-        self.t_min = np.reshape(t_vals, [N])
+        self.t_min = np.reshape(t_vals, [readerSG.N])
         self.t_max = self.t_min + 3
-        self.w_max = np.reshape(w_vals, [N])*0.06
-        self.logger.info('min temps: ' + str(self.t_min))
-        self.logger.info('max temps: ' + str(self.t_max))
-        self.logger.info('max w: ' + str(self.w_max))
+        self.w_max = np.reshape(w_vals, [readerSG.N])*0.06
+        readerSG.logger.info('min temps: ' + str(self.t_min))
+        readerSG.logger.info('max temps: ' + str(self.t_max))
+        readerSG.logger.info('max w: ' + str(self.w_max))
         self.init_temp = True
         return
 
-    def init_krill(self, N, n, x_min, x_max, y_min, y_max):
-        self.x = np.zeros([n, N])
-        self.y = np.zeros([n, N])
-        self.z = np.ones([n, N])*75
-        step_xy = (n / np.sqrt(n))
+    def init_krill(self, reader_SG):
+        self.x = np.zeros([reader_SG.n, reader_SG.N])
+        self.y = np.zeros([reader_SG.n, reader_SG.N])
+        self.z = np.ones([reader_SG.n, reader_SG.N])*75
+        step_xy = (reader_SG.n / np.sqrt(reader_SG.n))
 
-        for kk in range(0, N, 1):
+        for kk in range(0, reader_SG.N, 1):
             counter = -1
             for ii in np.arange(0, step_xy, 1):
-                x = x_min + ((x_max - x_min) * (((ii + 1) / step_xy)))
+                x = reader_SG.x_min + ((reader_SG.x_max - reader_SG.x_min) * (((ii + 1) / step_xy)))
                 for jj in np.arange(0, step_xy, 1):
-                    y = y_min + ((y_max - y_min) * (((jj + 1) / step_xy)))
+                    y = reader_SG.y_min + ((reader_SG.y_max - reader_SG.y_min) * (((jj + 1) / step_xy)))
                     counter = counter + 1
                     if self.depth[np.floor(y).astype(int), np.floor(x).astype(int)] > 0:
                         self.x[counter, kk] = x
@@ -56,14 +59,20 @@ class Krill:
                         self.x[counter, kk] = np.nan
                         self.y[counter, kk] = np.nan
                         self.z[counter, kk] = np.nan
-        self.logger.info('Initialised ' + str(np.nansum(self.x>0)) + ' krill with x and y values across ' + str(N) +
+        reader_SG.logger.info('Initialised ' + str(np.nansum(self.x>0)) + ' krill with x and y values across ' + str(reader_SG.N) +
                          ' ensemble members')
         return
 
     def step_krill(self, dt_datetime, reader_SG):
         time_index = reader_SG.time_index
+        biotime_index = reader_SG.bio_index
         nc_file = reader_SG.nc_file
         dt = dt_datetime.seconds
+        if biotime_index != self.bio_load_counter:
+            self.chl = np.array(reader_SG.bio_ncfile['chl'][biotime_index, :, :, :])
+            self.chl[self.chl>10000] = np.nan
+            self.bio_load_counter = biotime_index
+            reader_SG.logger.info('loading new biology variables for datetime: ' + str(reader_SG.current_datetime))
         if time_index != self.load_counter:
             self.u_east = np.array(nc_file['u_east'][time_index, :, :, :])
             self.v_north = np.array(nc_file['v_north'][time_index, :, :, :])
@@ -72,9 +81,10 @@ class Krill:
             self.v_north[self.v_north < -3000] = np.nan
             self.u_east[self.u_east < -3000] = np.nan
             self.load_counter = time_index
-            self.logger.info('loading new variables for datetime: ' + str(reader_SG.current_datetime))
+            reader_SG.logger.info('loading new physics variables for datetime: ' + str(reader_SG.current_datetime))
         self.t_save = np.ones([self.x.shape[0], self.x.shape[1]]) * -32000
         self.w_save = np.ones([self.x.shape[0], self.x.shape[1]]) * -32000
+        self.g_save = np.ones([self.x.shape[0], self.x.shape[1]]) * -32000
         for kk in range(0, self.x.shape[1]):
             for ii in range(0, self.x.shape[0]):
                 if ((self.x[ii, kk] > 0) & (self.x[ii, kk] < self.i_max) & (self.y[ii, kk] < self.j_max) &
@@ -82,11 +92,13 @@ class Krill:
                     layer_ii = np.argmin((self.lay_depths - self.z[ii, kk])**2)
                     u = self.u_east[layer_ii, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)]
                     v = self.v_north[layer_ii, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)]
-                    t = self.temp[layer_ii, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)] - 273.15
-                    grads_t = np.gradient(self.temp[:, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)] - 273.15)
-                    grad_t = grads_t[layer_ii]
+                    t = self.temp[
+                            layer_ii, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(
+                                int)] - 273.15 # in celsius
 
-                    if (np.isnan(t)) | (np.isnan(u)) | (np.isnan(v)):
+
+                    # bio_index
+                    if (np.isnan(t))|(np.isnan(u)) | (np.isnan(v)):
                         self.x[ii, kk] = np.nan
                         self.y[ii, kk] = np.nan
                         self.z[ii, kk] = np.nan
@@ -100,22 +112,75 @@ class Krill:
                         self.x[ii, kk] = np.nan
                         self.y[ii, kk] = np.nan
                         self.z[ii, kk] = np.nan
-                    else:  # other options for krill
-                        if (t > self.t_max[kk]) | (t < self.t_min[kk]):
-                            w = self.swim_temp(t, kk, grad_t)
+                    else:
+                        # vertical behaviour controls
+                        if reader_SG.temp_beh:
+                            grads_t = np.gradient(self.temp[:, np.floor(self.y[ii, kk]).astype(int),
+                                                  np.floor(self.x[ii, kk]).astype(int)] - 273.15)
+                            grad_t = grads_t[layer_ii]
+                            if (t > self.t_max[kk]) | (t < self.t_min[kk]):
+                                w = self.swim_temp(t, kk, grad_t)
+                            else:
+                                w = 0.
+                        elif reader_SG.dvm_beh:
+                            w = 0.
                         else:
                             w = 0.
+
+                        if reader_SG.feed_beh:
+                            lonid = reader_SG.lon_id[
+                                np.floor(self.x[ii, kk]).astype(int), np.floor(self.y[ii, kk]).astype(int)]
+                            latid = reader_SG.lat_id[
+                                np.floor(self.x[ii, kk]).astype(int), np.floor(self.y[ii, kk]).astype(int)]
+                            dep_id = reader_SG.dep_id[layer_ii]
+                            #chl_val = self.chl[int(dep_id), int(lonid), int(latid)]
+                            #if np.isnan(chl_val):
+                            #    d_min = np.nanmax([0, dep_id-2])
+                            #    d_max = np.nanmin([18, dep_id+2])
+                            #    d_slice = slice(int(d_min), int(d_max), 1)
+                            #    lonid_min = np.nanmax([0, lonid-2])
+                            #    lonid_max = np.nanmin([33, lonid +2])
+                            #    lon_slice = slice(int(lonid_min), int(lonid_max), 1)
+                            #    latid_min = np.nanmax([0, latid - 2])
+                            #    latid_max = np.nanmin([49, latid + 2])
+                            #    lat_slice = slice(int(latid_min), int(latid_max), 1)
+                            #    chl_val = np.nanmean(self.chl[d_slice, lon_slice, lat_slice])
+
+                            d_min = np.nanmax([0, dep_id - 2])
+                            d_max = np.nanmin([18, dep_id + 2])
+                            d_slice = slice(int(d_min), int(d_max), 1)
+                            lonid_min = np.nanmax([0, lonid - 2])
+                            lonid_max = np.nanmin([33, lonid + 2])
+                            lon_slice = slice(int(lonid_min), int(lonid_max), 1)
+                            latid_min = np.nanmax([0, latid - 2])
+                            latid_max = np.nanmin([49, latid + 2])
+                            lat_slice = slice(int(latid_min), int(latid_max), 1)
+                            chl_val = np.nanmean(self.chl[d_slice, lon_slice, lat_slice])
+                            # print(str(chl_val))
+                            # get rates:
+                            f = chl_val/(chl_val + self.kpar)
+                            ing = self.gpar*f*self.lpar
+                            T = t + 273.15
+                            kgrowth = (self.lmax - self.lpar)*self.r_ref*np.exp((self.T_A/self.T_1)-(self.T_A/T))*f
+                            self.g_save[ii, kk] = kgrowth
+                            #print('chl (mg m-3) = ' + str(chl_val))
+                            #print('f = ' + str(f))
+                            #print('T = ' + str(t))
+                            #print('ing (mg day-1) = ' + str(ing))
+                            #print('growth (mm day-1) = ' + str(kgrowth))
+
                         self.x[ii, kk] = self.x[ii, kk] + ((dt * u) / self.res)
                         self.y[ii, kk] = self.y[ii, kk] + ((dt * v) / self.res)
                         self.z[ii, kk] = self.z[ii, kk] + ((dt * w) / self.res)
                         self.t_save[ii, kk] = t
                         self.w_save[ii, kk] = w
+                        #self.ing_save[ii, kk] = ing
                 else:
                     self.x[ii, kk] = np.nan
                     self.y[ii, kk] = np.nan
                     self.z[ii, kk] = np.nan
-
         return
+
 
     def swim_temp(self, t, kk, grad_t):
         if (grad_t == 0) | (np.isnan(grad_t)):
@@ -129,20 +194,22 @@ class Krill:
             w = -1 * np.sign(grad_t) * self.w_max[kk]
         return w
 
-    def save_step(self, save_counter, current_datetime):
+    def save_step(self, save_counter, reader_SG):
         self.trajectory_file['xp'][:, :, save_counter] = self.x
         self.trajectory_file['yp'][:, :, save_counter] = self.y
         self.trajectory_file['zp'][:, :, save_counter] = self.z
         self.trajectory_file['w'][:, :, save_counter] = self.w_save
         self.trajectory_file['temp'][:, :, save_counter] = self.t_save
-        self.trajectory_file['time'][save_counter] = date2num(current_datetime, self.trajectory_file['time'].unit)
+        if reader_SG.feed_beh:
+            self.trajectory_file['growth'][:, :, save_counter] = self.g_save
+        self.trajectory_file['time'][save_counter] = date2num(reader_SG.current_datetime, self.trajectory_file['time'].unit)
         return
 
-    def init_netcdf(self, trajectory_folder, N, n, save_n, save_file):
-        trajectory_filename = trajectory_folder + save_file
+    def init_netcdf(self, readerSG):
+        trajectory_filename = readerSG.trajectory_folder + readerSG.save_file
 
         self.trajectory_file = nc.Dataset(trajectory_filename, mode='w')
-        dimension_key_dict = {'trajectory': n, 'ensemble': N, 'obs': save_n}
+        dimension_key_dict = {'trajectory': readerSG.n, 'ensemble': readerSG.N, 'obs': readerSG.save_number}
 
         for dimension in dimension_key_dict:
             self.trajectory_file.createDimension(dimension, dimension_key_dict[dimension])
@@ -158,14 +225,24 @@ class Krill:
                              'w': {'datatype': 'f4', 'dimensions': ('trajectory', 'ensemble', 'obs'),
                                       'description': 'speed of particle'},
                              'time': {'datatype': 'f4', 'dimensions': ('obs',),
-                                      'description': 'datetime of particle'},
-                             't_min':{'datatype': 'f4', 'dimensions': ('ensemble',),
-                                      'description': 'datetime of particle'},
-                             't_max': {'datatype': 'f4', 'dimensions': ('ensemble',),
-                                       'description': 'datetime of particle'},
-                             'w_max': {'datatype': 'f4', 'dimensions': ('ensemble',),
-                                       'description': 'datetime of particle'}
+                                      'description': 'datetime of particle'}
                              }
+
+        if readerSG.feed_beh:
+            variable_key_dict.update({
+                'growth': {'datatype': 'f4', 'dimensions': ('trajectory', 'ensemble', 'obs'),
+                          'description': 'instantaneous growth (mm day**-1) based on T and Chl_a'}})
+
+        if readerSG.temp_beh:
+            variable_key_dict.update({
+                't_min': {'datatype': 'f4', 'dimensions': ('ensemble',),
+                          'description': 'minimum temperature in comfort zone'},
+                't_max': {'datatype': 'f4', 'dimensions': ('ensemble',),
+                          'description': 'max temperature in comfort zone'},
+                'w_max': {'datatype': 'f4', 'dimensions': ('ensemble',),
+                          'description': 'speed of discomfort response'}})
+
+        #readerSG.logger.info('Dictionary structure for saving: ' + str(variable_key_dict))
 
         for variable in variable_key_dict:
             self.trajectory_file.createVariable(variable, variable_key_dict[variable]['datatype'],
@@ -178,14 +255,18 @@ class Krill:
             self.trajectory_file['w_max'][:] = self.w_max
         time_unit_out = "seconds since 2014-04-01 00:00:00"
         self.trajectory_file['time'].setncattr('unit', time_unit_out)
-        self.logger.info('Initialising trajectory file: ' + trajectory_filename)
+        readerSG.logger.info('Initialising trajectory file: ' + trajectory_filename)
+        readerSG.logger.info(self.trajectory_file)
         return
 
 
     def plot_init(self, kk):
         fig, axs = plt.subplots(figsize=(12, 8), layout='constrained')
-        axs.pcolormesh(self.depth, cmap=plt.get_cmap('viridis'))
-        axs.scatter(self.x[:,kk], self.y[:,kk], c='r', s=1)
+        cmap = plt.get_cmap('Blues')
+        cmap.set_bad('gray', 0.8)
+        d_map = axs.pcolormesh(self.depth, cmap=cmap, vmax=4500)
+        fig.colorbar(d_map, label= 'depth (m)')
+        axs.scatter(self.x[:,kk], self.y[:,kk], c='r', s=3)
         plt.show()
         return
 
@@ -202,4 +283,9 @@ class Krill:
         fig.colorbar(d_map)
         plt.show()
         return
+
+
+
+
+
 
