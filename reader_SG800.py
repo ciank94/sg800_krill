@@ -9,13 +9,14 @@ import logging
 
 class SGReader:
 
-    def __init__(self, remote, test, bio_mapping, temp_beh, dvm_beh, feed_beh):
+    def __init__(self, remote, test, light_mapping, bio_mapping, temp_beh, dvm_beh, feed_beh):
         # initialise switches for model parameterisation:
         self.logger = logging.getLogger(__name__)  # initiate logger
         self.logger.warning('========================')
         self.logger.warning('Beginning new simulation ')
         self.remote = remote
         self.test = test
+        self.light_mapping = light_mapping
         self.bio_mapping = bio_mapping
         self.temp_beh = temp_beh
         self.dvm_beh = dvm_beh
@@ -72,6 +73,77 @@ class SGReader:
 
         return
 
+    def read_light(self):
+        self.light_prefix = 'swrad_'
+        self.light_filename = self.samples_folder + self.light_prefix + str(self.current_datetime.year) + '.nc'
+        self.logger.info('opening light file ' + self.light_filename)
+        self.light_ncfile = nc.Dataset(self.light_filename)
+        self.light_index = np.argmin((date2num(self.current_datetime, self.light_ncfile['valid_time'].units) - self.light_ncfile['valid_time'][:]) ** 2)
+
+        #
+        # num2date(self.light_ncfile['valid_time'][self.light_index], self.light_ncfile['valid_time'].units)
+        self.light_lon_mapping = self.samples_folder + 'lon_mapping_' + str(self.current_datetime.year) + '.npy'
+        self.light_lat_mapping = self.samples_folder + 'lat_mapping_' + str(self.current_datetime.year) + '.npy'
+
+        if self.light_mapping:
+            self.logger.info('creating mapping from ' + self.light_filename)
+            lat2 = np.array(self.light_ncfile['latitude'][:])
+            lon2 = np.array(self.light_ncfile['longitude'][:])
+            [x_cmems, y_cmems] = np.meshgrid(lat2, lon2)
+            x = np.arange(0, self.nc_file['xc'].shape[0])
+            y = np.arange(0, self.nc_file['yc'].shape[0])
+            [x_pos, y_pos] = np.meshgrid(x, y)
+            [lat1, lon1] = geo2grid(x_pos.flatten(), y_pos.flatten(), 'get_bl')
+            lat_re = lat1.reshape([y.shape[0], x.shape[0]])
+            lon_re = lon1.reshape([y.shape[0], x.shape[0]])
+            lat_grid = np.zeros(lat_re.shape)
+            lon_grid = np.zeros(lon_re.shape)
+            for i in range(0, lat_re.shape[0]):
+                for j in range(0, lat_re.shape[1]):
+                    dist_v = haversine(y_cmems, x_cmems, lon_re[i, j], lat_re[i, j])
+                    idx = np.argmin(dist_v)
+                    [id_lon, id_lat] = np.unravel_index(idx, dist_v.shape)
+                    if (id_lon < x_cmems.shape[0]) & (id_lat < x_cmems.shape[1]):
+                        lon_grid[i, j] = id_lon  # value for where we should look in bio_file chl(id_lon, id_lat)
+                        lat_grid[i, j] = id_lat
+
+            np.save(self.light_lon_mapping, lon_grid)
+            np.save(self.light_lat_mapping, lat_grid)
+            self.logger.info('saved mapping from ' + self.light_filename)
+        self.logger.info('loading mapping from ' + self.light_filename)
+        self.light_lon_id = np.load(self.light_lon_mapping)
+        self.light_lat_id = np.load(self.light_lat_mapping)
+
+        # check section:
+        # import matplotlib.pyplot as plt
+        # import cartopy.crs as ccrs
+        # light_array = np.array(self.light_ncfile['msnswrf'][self.light_index+20,:,:])
+        # dp_vals = self.nc_file['depth'][:]
+        # dp_vals[dp_vals>0] = 0
+        # check_vals = np.zeros(self.light_lon_id.shape)
+        # for ii in range(0, self.light_lon_id.shape[0]):
+        #     for jj in range(0, self.light_lon_id.shape[1]):
+        #         check_vals[ii,jj] += light_array[int(self.light_lat_id[ii,jj]), int(self.light_lon_id[ii,jj])]
+        #         check_vals[ii,jj] += dp_vals[ii,jj]
+        # dmap = plt.pcolormesh(check_vals, cmap=plt.get_cmap('hot'))
+        # plt.colorbar(label='Wm**-2')
+        # plt.show()
+        #
+        # lon = self.light_ncfile['longitude'][:]
+        # lat = self.light_ncfile['latitude'][:]
+        # fig, axs = plt.subplots(figsize=(8, 8), nrows=1, ncols=1, subplot_kw={'projection': ccrs.PlateCarree()})
+        # fig1 = axs.pcolormesh(lon, lat, light_array, cmap=plt.get_cmap('hot'),
+        #                       transform=ccrs.PlateCarree())
+        # axs.coastlines()
+        # fig.colorbar(fig1, label='short-wave rad' + ' units =' + 'Wm**-2')
+        # axs.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
+        # plt.show()
+        # breakpoint()
+        return
+
+
+
+
     def read_bio(self):
         self.bio_fileprefix = 'CMEMS_SGBIO_Dfull_'
         self.bio_filename = self.samples_folder + self.bio_fileprefix + str(self.current_datetime.year) + '.nc'
@@ -89,18 +161,18 @@ class SGReader:
             self.logger.info('creating mapping from ' + self.bio_filename)
             lat2 = np.array(self.bio_ncfile['latitude'][:])
             lon2 = np.array(self.bio_ncfile['longitude'][:])
-            [x_cmems, y_cmems] = np.meshgrid(lon2, lat2)
+            [x_cmems, y_cmems] = np.meshgrid(lat2, lon2)
             x = np.arange(0, self.nc_file['xc'].shape[0])
             y = np.arange(0, self.nc_file['yc'].shape[0])
-            [y_pos, x_pos] = np.meshgrid(y, x)
-            [lat1, lon1] = geo2grid(y_pos.flatten(), x_pos.flatten(), 'get_bl')
-            lat_re = lat1.reshape([x.shape[0], y.shape[0]])
-            lon_re = lon1.reshape([x.shape[0], y.shape[0]])
+            [x_pos, y_pos] = np.meshgrid(x, y)
+            [lat1, lon1] = geo2grid(x_pos.flatten(), y_pos.flatten(), 'get_bl')
+            lat_re = lat1.reshape([y.shape[0], x.shape[0]])
+            lon_re = lon1.reshape([y.shape[0], x.shape[0]])
             lat_grid = np.zeros(lat_re.shape)
             lon_grid = np.zeros(lon_re.shape)
             for i in range(0, lat_re.shape[0]):
                 for j in range(0, lat_re.shape[1]):
-                    dist_v = haversine(x_cmems, y_cmems, lon_re[i, j], lat_re[i, j])
+                    dist_v = haversine(y_cmems, x_cmems, lon_re[i, j], lat_re[i, j])
                     idx = np.argmin(dist_v)
                     [id_lon, id_lat] = np.unravel_index(idx, dist_v.shape)
                     if (id_lon < x_cmems.shape[0]) & (id_lat < x_cmems.shape[1]):
@@ -122,6 +194,35 @@ class SGReader:
         self.lon_id = np.load(self.lon_mapping)
         self.lat_id = np.load(self.lat_mapping)
         self.dep_id = np.load(self.depth_mapping)
+
+        # check section:
+        # import matplotlib.pyplot as plt
+        # import cartopy.crs as ccrs
+        # chl_array = np.array(self.bio_ncfile['chl'][self.bio_index+20,0, :,:])
+        # chl_array[chl_array>3000] = np.nan
+        # dp_vals = self.nc_file['depth'][:]
+        # dp_vals[dp_vals>0] = 0
+        # check_vals = np.zeros(self.lon_id.shape)
+        # for ii in range(0, self.lon_id.shape[0]):
+        #     for jj in range(0, self.lon_id.shape[1]):
+        #         check_vals[ii,jj] += chl_array[int(self.lat_id[ii,jj]), int(self.lon_id[ii,jj])]
+        #         check_vals[ii,jj] += dp_vals[ii,jj]
+        # cmap = plt.get_cmap('Greens')
+        # cmap.set_bad('gray', 0.8)
+        # plt.pcolormesh(check_vals, cmap=cmap)
+        # plt.colorbar(label='mg m**-3')
+        # plt.show()
+        #
+        # lon = self.bio_ncfile['longitude'][:]
+        # lat = self.bio_ncfile['latitude'][:]
+        # fig, axs = plt.subplots(figsize=(8, 8), nrows=1, ncols=1, subplot_kw={'projection': ccrs.PlateCarree()})
+        # fig1 = axs.pcolormesh(lon, lat, chl_array, cmap=plt.get_cmap('Greens'),
+        #                       transform=ccrs.PlateCarree())
+        # axs.coastlines()
+        # fig.colorbar(fig1, label='chl vals' + ' units =' + 'mg m**-3')
+        # axs.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
+        # plt.show()
+        # breakpoint()
         return
 
     def log_init(self, n, N, x_min, x_max, y_min, y_max, dt, save_step, simulation_steps, save_number):

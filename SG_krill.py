@@ -96,7 +96,6 @@ class Krill:
                             layer_ii, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(
                                 int)] - 273.15 # in celsius
 
-
                     # bio_index
                     if (np.isnan(t))|(np.isnan(u)) | (np.isnan(v)):
                         self.x[ii, kk] = np.nan
@@ -113,6 +112,12 @@ class Krill:
                         self.y[ii, kk] = np.nan
                         self.z[ii, kk] = np.nan
                     else:
+                        x1 = int(self.x[ii, kk])
+                        y1 = int(self.y[ii, kk])
+
+                        if reader_SG.feed_beh:
+                            self.g_save[ii, kk] = self.feeding(reader_SG, x1, y1, layer_ii, t)
+
                         # vertical behaviour controls
                         if reader_SG.temp_beh:
                             grads_t = np.gradient(self.temp[:, np.floor(self.y[ii, kk]).astype(int),
@@ -127,48 +132,6 @@ class Krill:
                         else:
                             w = 0.
 
-                        if reader_SG.feed_beh:
-                            lonid = reader_SG.lon_id[
-                                np.floor(self.x[ii, kk]).astype(int), np.floor(self.y[ii, kk]).astype(int)]
-                            latid = reader_SG.lat_id[
-                                np.floor(self.x[ii, kk]).astype(int), np.floor(self.y[ii, kk]).astype(int)]
-                            dep_id = reader_SG.dep_id[layer_ii]
-                            #chl_val = self.chl[int(dep_id), int(lonid), int(latid)]
-                            #if np.isnan(chl_val):
-                            #    d_min = np.nanmax([0, dep_id-2])
-                            #    d_max = np.nanmin([18, dep_id+2])
-                            #    d_slice = slice(int(d_min), int(d_max), 1)
-                            #    lonid_min = np.nanmax([0, lonid-2])
-                            #    lonid_max = np.nanmin([33, lonid +2])
-                            #    lon_slice = slice(int(lonid_min), int(lonid_max), 1)
-                            #    latid_min = np.nanmax([0, latid - 2])
-                            #    latid_max = np.nanmin([49, latid + 2])
-                            #    lat_slice = slice(int(latid_min), int(latid_max), 1)
-                            #    chl_val = np.nanmean(self.chl[d_slice, lon_slice, lat_slice])
-
-                            d_min = np.nanmax([0, dep_id - 2])
-                            d_max = np.nanmin([18, dep_id + 2])
-                            d_slice = slice(int(d_min), int(d_max), 1)
-                            lonid_min = np.nanmax([0, lonid - 2])
-                            lonid_max = np.nanmin([33, lonid + 2])
-                            lon_slice = slice(int(lonid_min), int(lonid_max), 1)
-                            latid_min = np.nanmax([0, latid - 2])
-                            latid_max = np.nanmin([49, latid + 2])
-                            lat_slice = slice(int(latid_min), int(latid_max), 1)
-                            chl_val = np.nanmean(self.chl[d_slice, lon_slice, lat_slice])
-                            # print(str(chl_val))
-                            # get rates:
-                            f = chl_val/(chl_val + self.kpar)
-                            ing = self.gpar*f*self.lpar
-                            T = t + 273.15
-                            kgrowth = (self.lmax - self.lpar)*self.r_ref*np.exp((self.T_A/self.T_1)-(self.T_A/T))*f
-                            self.g_save[ii, kk] = kgrowth
-                            #print('chl (mg m-3) = ' + str(chl_val))
-                            #print('f = ' + str(f))
-                            #print('T = ' + str(t))
-                            #print('ing (mg day-1) = ' + str(ing))
-                            #print('growth (mm day-1) = ' + str(kgrowth))
-
                         self.x[ii, kk] = self.x[ii, kk] + ((dt * u) / self.res)
                         self.y[ii, kk] = self.y[ii, kk] + ((dt * v) / self.res)
                         self.z[ii, kk] = self.z[ii, kk] + ((dt * w) / self.res)
@@ -181,6 +144,32 @@ class Krill:
                     self.z[ii, kk] = np.nan
         return
 
+    def feeding(self, reader_SG, x1, y1, layer_ii, t):
+        lonid = reader_SG.lon_id[y1, x1]
+        latid = reader_SG.lat_id[y1, x1]
+        dep_id = reader_SG.dep_id[layer_ii]
+        d_min = np.nanmax([0, dep_id - 2])
+        d_max = np.nanmin([self.chl.shape[0]-1, dep_id + 2])
+        d_slice = slice(int(d_min), int(d_max), 1)
+        latid_min = np.nanmax([0, latid - 2])
+        latid_max = np.nanmin([self.chl.shape[1], latid + 2])
+        lat_slice = slice(int(latid_min), int(latid_max), 1)
+        lonid_min = np.nanmax([0, lonid - 2])
+        lonid_max = np.nanmin([self.chl.shape[2], lonid + 2])
+        lon_slice = slice(int(lonid_min), int(lonid_max), 1)
+        chl_val = np.nanmean(self.chl[d_slice, lat_slice, lon_slice])
+        # print(str(chl_val))
+        # get rates:
+        f = chl_val / (chl_val + self.kpar)
+        ing = self.gpar * f * self.lpar
+        T = t + 273.15
+        kgrowth = (self.lmax - self.lpar) * self.r_ref * np.exp((self.T_A / self.T_1) - (self.T_A / T)) * f
+        # print('chl (mg m-3) = ' + str(chl_val))
+        # print('f = ' + str(f))
+        # print('T = ' + str(t))
+        # print('ing (mg day-1) = ' + str(ing))
+        # print('growth (mm day-1) = ' + str(kgrowth))
+        return kgrowth
 
     def swim_temp(self, t, kk, grad_t):
         if (grad_t == 0) | (np.isnan(grad_t)):

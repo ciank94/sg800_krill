@@ -18,11 +18,11 @@ pl = PlotData(save_folder, trajectory_folder)
 
 
 # read the file that needs reading: #todo: functions that call different files, determines number of plots and saves if time
-time_prefix = 'trajectory_20170301_d40'
+time_prefix = 'trajectory_20170101_d40'
 pl.read_trajectory_file(file_prefix=time_prefix)
 #breakpoint()
 
-pl.plot_growth(skip_t=1, kk=0)
+#pl.plot_growth(skip_t=1, kk=0)
 
 #pl.plot_anomalies(skip_t=1, kk=0)
 

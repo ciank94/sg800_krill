@@ -9,13 +9,14 @@ import matplotlib.pyplot as plt
 # switches for changing the type of simulation:
 remote = False  # remote or local server
 test = True  # load data less frequently
+light_mapping = False # mapping between SINMOD and ERA5 grid
 bio_mapping = False  # mapping between SINMOD and PISCES grid
 temp_beh = False  # vertical response to temperature gradient
 dvm_beh = True  # vertical response to light conditions (dvm_beh overrides temp_beh)
 feed_beh = True # f parameter defining feeding
 
 # time parameters:
-date_init = datetime.datetime(2017, 3, 1, 1, 0)
+date_init = datetime.datetime(2017, 1, 1, 1, 0)
 duration_days = datetime.timedelta(days=40)  # simulation duration in days;
 minutes = 120
 dt = datetime.timedelta(hours=minutes/60)
@@ -33,10 +34,11 @@ y_min = 210.0
 y_max = 610.5
 
 # Furnish reader with initial parameters:
-reader_SG = SGReader(remote, test, bio_mapping, temp_beh, dvm_beh, feed_beh)  # initialise switches for simulation
+reader_SG = SGReader(remote, test, light_mapping, bio_mapping, temp_beh, dvm_beh, feed_beh)  # initialise switches for simulation
 reader_SG.file_explorer()  # define paths to files in this folder
 reader_SG.init_time(duration_days.days, date_init)  # reader that adds time info from current file
 reader_SG.read_bio()  # read biology file
+reader_SG.read_light()
 reader_SG.log_init(n, N, x_min, x_max, y_min, y_max, dt, save_step, simulation_steps, save_number)  # log init to file
 
 # start of simulation:
