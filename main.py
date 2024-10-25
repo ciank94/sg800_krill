@@ -12,7 +12,7 @@ test = True  # load data less frequently
 light_mapping = False # mapping between SINMOD and ERA5 grid
 bio_mapping = False  # mapping between SINMOD and PISCES grid
 temp_beh = False  # vertical response to temperature gradient
-dvm_beh = True  # vertical response to light conditions (dvm_beh overrides temp_beh)
+dvm_beh = False  # vertical response to light conditions (dvm_beh overrides temp_beh)
 feed_beh = True # f parameter defining feeding
 
 # time parameters:
@@ -26,8 +26,8 @@ simulation_steps = duration_days/dt
 save_number = duration_days/save_step
 
 # model parameters:
-n = 10000  # particle number
-N = 1  # ensemble members;
+n = 1600  # particle number
+N = 2  # ensemble members;
 x_min = 210.0  # coordinates for initialization; todo: make initialization
 x_max = 610.4
 y_min = 210.0

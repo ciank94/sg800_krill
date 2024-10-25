@@ -41,10 +41,17 @@ class Krill:
     def init_krill(self, reader_SG):
         self.x = np.zeros([reader_SG.n, reader_SG.N])
         self.y = np.zeros([reader_SG.n, reader_SG.N])
-        self.z = np.ones([reader_SG.n, reader_SG.N])*75
+        self.z = np.zeros([reader_SG.n, reader_SG.N])
+        self.l = np.zeros([reader_SG.n, reader_SG.N])
+        length_list = [40, 40]
+        depth_list = [50, 250]
         step_xy = (reader_SG.n / np.sqrt(reader_SG.n))
 
         for kk in range(0, reader_SG.N, 1):
+            kz = depth_list[kk]
+            ll = length_list[kk]
+            reader_SG.logger.info('Initialised ensemble (#) ' + str(kk) + ' at depth (m) = ' + str(kz) +
+                                  ' with length (mm) = ' + str(ll))
             counter = -1
             for ii in np.arange(0, step_xy, 1):
                 x = reader_SG.x_min + ((reader_SG.x_max - reader_SG.x_min) * (((ii + 1) / step_xy)))
@@ -54,13 +61,15 @@ class Krill:
                     if self.depth[np.floor(y).astype(int), np.floor(x).astype(int)] > 0:
                         self.x[counter, kk] = x
                         self.y[counter, kk] = y
-                        self.z[counter, kk] = self.z[counter, kk]
+                        self.z[counter, kk] = kz
+                        self.l[counter, kk] = ll
                     else:
                         self.x[counter, kk] = np.nan
                         self.y[counter, kk] = np.nan
                         self.z[counter, kk] = np.nan
-        reader_SG.logger.info('Initialised ' + str(np.nansum(self.x>0)) + ' krill with x and y values across ' + str(reader_SG.N) +
-                         ' ensemble members')
+                        self.l[counter, kk] = np.nan
+        reader_SG.logger.info('Initialised ' + str(np.nansum(self.x>0)) + ' krill with x and y values across '
+                              + str(reader_SG.N) + ' ensemble members')
         return
 
     def step_krill(self, dt_datetime, reader_SG):
@@ -84,12 +93,13 @@ class Krill:
             reader_SG.logger.info('loading new physics variables for datetime: ' + str(reader_SG.current_datetime))
         self.t_save = np.ones([self.x.shape[0], self.x.shape[1]]) * -32000
         self.w_save = np.ones([self.x.shape[0], self.x.shape[1]]) * -32000
-        self.g_save = np.ones([self.x.shape[0], self.x.shape[1]]) * -32000
+        #self.g_save = np.ones([self.x.shape[0], self.x.shape[1]]) * -32000
         for kk in range(0, self.x.shape[1]):
             for ii in range(0, self.x.shape[0]):
                 if ((self.x[ii, kk] > 0) & (self.x[ii, kk] < self.i_max) & (self.y[ii, kk] < self.j_max) &
                         (self.y[ii, kk] > 0)):
-                    layer_ii = np.argmin((self.lay_depths - self.z[ii, kk])**2)
+                    zv = self.z[ii, kk]
+                    layer_ii = np.argmin((self.lay_depths - zv)**2)
                     u = self.u_east[layer_ii, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)]
                     v = self.v_north[layer_ii, np.floor(self.y[ii, kk]).astype(int), np.floor(self.x[ii, kk]).astype(int)]
                     t = self.temp[
@@ -114,23 +124,20 @@ class Krill:
                     else:
                         x1 = int(self.x[ii, kk])
                         y1 = int(self.y[ii, kk])
+                        z1 = int(zv)
+                        l1 = self.l[ii, kk]
 
                         if reader_SG.feed_beh:
-                            self.g_save[ii, kk] = self.feeding(reader_SG, x1, y1, layer_ii, t)
+                            kgrowth = self.feeding(reader_SG, x1, y1, l1, layer_ii, t)
+                            if np.isnan(kgrowth):
+                                print('invalid growth value;')
+                            self.l[ii, kk] += (kgrowth/86400)*dt
 
-                        # vertical behaviour controls
-                        if reader_SG.temp_beh:
-                            grads_t = np.gradient(self.temp[:, np.floor(self.y[ii, kk]).astype(int),
-                                                  np.floor(self.x[ii, kk]).astype(int)] - 273.15)
-                            grad_t = grads_t[layer_ii]
-                            if (t > self.t_max[kk]) | (t < self.t_min[kk]):
-                                w = self.swim_temp(t, kk, grad_t)
-                            else:
-                                w = 0.
-                        elif reader_SG.dvm_beh:
-                            w = 0.
+                        if reader_SG.dvm_beh:
+                            w=0.
                         else:
-                            w = 0.
+                            w=0.
+                            #self.dvm()
 
                         self.x[ii, kk] = self.x[ii, kk] + ((dt * u) / self.res)
                         self.y[ii, kk] = self.y[ii, kk] + ((dt * v) / self.res)
@@ -144,13 +151,18 @@ class Krill:
                     self.z[ii, kk] = np.nan
         return
 
-    def feeding(self, reader_SG, x1, y1, layer_ii, t):
+    def dvm(self, reader_SG, x1, y1, z1):
+        lonid = reader_SG.light_lon_id[y1, x1]
+        latid = reader_SG.light_lat_id[y1, x1]
+
+
+    def feeding(self, reader_SG, x1, y1, l1, layer_ii, t):
         lonid = reader_SG.lon_id[y1, x1]
         latid = reader_SG.lat_id[y1, x1]
         dep_id = reader_SG.dep_id[layer_ii]
         d_min = np.nanmax([0, dep_id - 2])
-        d_max = np.nanmin([self.chl.shape[0]-1, dep_id + 2])
-        d_slice = slice(int(d_min), int(d_max), 1)
+        d_max = np.nanmin([self.chl.shape[0]-2, dep_id + 2])
+        d_slice = slice(int(d_min), int(d_max), 2)
         latid_min = np.nanmax([0, latid - 2])
         latid_max = np.nanmin([self.chl.shape[1], latid + 2])
         lat_slice = slice(int(latid_min), int(latid_max), 1)
@@ -163,7 +175,7 @@ class Krill:
         f = chl_val / (chl_val + self.kpar)
         ing = self.gpar * f * self.lpar
         T = t + 273.15
-        kgrowth = (self.lmax - self.lpar) * self.r_ref * np.exp((self.T_A / self.T_1) - (self.T_A / T)) * f
+        kgrowth = (self.lmax - l1) * self.r_ref * np.exp((self.T_A / self.T_1) - (self.T_A / T)) * f
         # print('chl (mg m-3) = ' + str(chl_val))
         # print('f = ' + str(f))
         # print('T = ' + str(t))
@@ -190,7 +202,7 @@ class Krill:
         self.trajectory_file['w'][:, :, save_counter] = self.w_save
         self.trajectory_file['temp'][:, :, save_counter] = self.t_save
         if reader_SG.feed_beh:
-            self.trajectory_file['growth'][:, :, save_counter] = self.g_save
+            self.trajectory_file['lp'][:, :, save_counter] = self.l
         self.trajectory_file['time'][save_counter] = date2num(reader_SG.current_datetime, self.trajectory_file['time'].unit)
         return
 
@@ -204,23 +216,20 @@ class Krill:
             self.trajectory_file.createDimension(dimension, dimension_key_dict[dimension])
 
         variable_key_dict = {'xp': {'datatype': 'f4', 'dimensions': ('trajectory', 'ensemble', 'obs'),
-                                           'description': 'x position of particle'},
+                                    'description': 'x position of particle'},
                              'yp': {'datatype': 'f4', 'dimensions': ('trajectory', 'ensemble', 'obs'),
                                     'description': 'y position of particle'},
                              'zp': {'datatype': 'f4', 'dimensions': ('trajectory', 'ensemble', 'obs'),
                                     'description': 'z position of particle'},
+                             'lp': {'datatype': 'f4', 'dimensions': ('trajectory', 'ensemble', 'obs'),
+                                    'description': 'length based on instantaneous growth (mm day**-1) coupled T and Chl_a'},
                              'temp': {'datatype': 'f4', 'dimensions': ('trajectory', 'ensemble', 'obs'),
-                                    'description': 'temperature of particle'},
+                                      'description': 'temperature of particle'},
                              'w': {'datatype': 'f4', 'dimensions': ('trajectory', 'ensemble', 'obs'),
-                                      'description': 'speed of particle'},
+                                   'description': 'speed of particle'},
                              'time': {'datatype': 'f4', 'dimensions': ('obs',),
                                       'description': 'datetime of particle'}
                              }
-
-        if readerSG.feed_beh:
-            variable_key_dict.update({
-                'growth': {'datatype': 'f4', 'dimensions': ('trajectory', 'ensemble', 'obs'),
-                          'description': 'instantaneous growth (mm day**-1) based on T and Chl_a'}})
 
         if readerSG.temp_beh:
             variable_key_dict.update({
@@ -242,6 +251,8 @@ class Krill:
             self.trajectory_file['t_min'][:] = self.t_min
             self.trajectory_file['t_max'][:] = self.t_max
             self.trajectory_file['w_max'][:] = self.w_max
+
+        # initialise time units
         time_unit_out = "seconds since 2014-04-01 00:00:00"
         self.trajectory_file['time'].setncattr('unit', time_unit_out)
         readerSG.logger.info('Initialising trajectory file: ' + trajectory_filename)

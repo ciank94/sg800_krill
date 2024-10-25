@@ -26,6 +26,8 @@ class PlotData:
     def read_trajectory_file(self, file_prefix):
         trajectory_file = self.trajectory_folder + file_prefix + '.nc'
         self.df = nc.Dataset(trajectory_file, mode='r')
+        self.dates = num2date(self.df['time'], self.df['time'].unit)
+        #[np.sum(np.isnan(self.df['xp'][:, 0, i])) for i in range(0, self.df['xp'].shape[2])]
         return
 
 
@@ -250,7 +252,7 @@ class PlotData:
     def plot_growth(self, skip_t, kk):
         x_times = np.array(self.df['xp'][:, kk, ::skip_t])
         y_times = np.array(self.df['yp'][:, kk, ::skip_t])
-        growth = np.array(self.df['growth'][:, kk, ::skip_t])
+        growth = np.array(self.df['length'][:, kk, ::skip_t])
 
         x_times[x_times > 1000] = np.nan
         y_times[y_times > 1000] = np.nan
@@ -370,6 +372,65 @@ class PlotData:
         fig.colorbar(d_map)
         self.save_plot(plt_name='current_map')
         return
+
+    def animate_dom(self, kk, skip_t):
+        import matplotlib.animation as animation
+        fig, ax = plt.subplots(figsize=(12, 8), layout='constrained')
+        #fig, ax = plt.subplots()
+        cmap = plt.get_cmap('hot')
+        cmap.set_bad('gray', 0.9)
+
+
+        artists = []
+        x_times = np.array(self.df['xp'][:, kk, ::skip_t])
+        y_times = np.array(self.df['yp'][:, kk, ::skip_t])
+        x_times[x_times > 1000] = np.nan
+        y_times[y_times > 1000] = np.nan
+
+        x_times[x_times >= self.i_max] = self.i_max - 1
+        y_times[y_times >= self.j_max] = self.j_max - 1
+        stept = 20
+        second_point = 60
+        for j in range(0, int(x_times.shape[1]/stept)):
+            dom_vals = np.zeros(self.depth.shape)
+            dom_vals[:] = self.depth[:]
+            dom_vals[~np.isnan(dom_vals)] = 0
+            it_a = (j * stept)
+            it_b = second_point + (j + 1) * stept
+            if it_b >= x_times.shape[1]:
+                break
+            print(str(it_a))
+            print('to: ' + str(it_b))
+            print(str(np.shape(x_times[0, slice(it_a, it_b, 1)])))
+            #if j == int(x_times.shape[1]/stept)-1:
+               # breakpoint()
+            for p in range(0, x_times.shape[0]):
+                xp = x_times[p, slice(it_a, it_b, 1)]
+                yp = y_times[p, slice(it_a, it_b, 1)]
+                id_p = ~np.isnan(xp)
+                dom_vals[yp[id_p].astype(int), xp[id_p].astype(int)] += 1
+            dom_vals[~np.isnan(dom_vals)] /= (np.nanmax(dom_vals))
+
+            # vmax=0.0035
+            #plt.contourf(df.columns, df.index, df, 800, colors='white')
+            container = ax.contourf(dom_vals, cmap=cmap, alpha=1, levels=np.linspace(0, 0.25,25))
+
+            if j == 0:
+                #vmax = np.nanmax(dom_vals) / 2
+                fig.colorbar(container)
+                ax.set_title('Initialised month = ' + str(self.dates[0].month), fontsize = 25)
+
+            artists.append(container.collections)
+        ani = animation.ArtistAnimation(fig=fig, artists=artists)
+        ani.save(filename=self.save_folder + 'ani_examp.gif', writer="ffmpeg")
+
+
+
+
+
+
+
+        #
 
     def init_current_file(self):
         print('creating current file')

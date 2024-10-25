@@ -20,9 +20,12 @@ pl = PlotData(save_folder, trajectory_folder)
 # read the file that needs reading: #todo: functions that call different files, determines number of plots and saves if time
 time_prefix = 'trajectory_20170101_d40'
 pl.read_trajectory_file(file_prefix=time_prefix)
+
+#pl.animate_dom(kk=1, skip_t=1)
 #breakpoint()
 
-#pl.plot_growth(skip_t=1, kk=0)
+
+pl.plot_growth(skip_t=1, kk=0)
 
 #pl.plot_anomalies(skip_t=1, kk=0)
 
@@ -35,7 +38,7 @@ pl.read_trajectory_file(file_prefix=time_prefix)
 
 # first plots: environment and trajectories over time;
 #pl.plot_currents()
-#pl.plot_trajectory_color(skip_n=10, skip_t=3, kk=0)
+#pl.plot_trajectory_color(skip_n=10, skip_t=5, kk=0)
 #pl.plot_retention()
 
 # dom_pathways plots:

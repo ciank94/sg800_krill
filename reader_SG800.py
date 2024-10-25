@@ -1,4 +1,6 @@
 import math
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pyproj
 import netCDF4 as nc
@@ -139,6 +141,19 @@ class SGReader:
         # axs.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
         # plt.show()
         # breakpoint()
+
+        # check the overall light values;
+        #light = self.light_ncfile['msnswrf']
+        #l_mean = np.mean(light, 1)
+        #l_mean2 = np.mean(l_mean, 1)
+        #plt.plot(np.arange(0, l_mean2.shape[0])/24, l_mean2, 'r')
+        #plt.xlabel('day of year')
+        #plt.ylabel('W m **-2')
+        #plt.show()
+        #breakpoint()
+        #print(str(np.mean(light[:])))
+        #[print(str(np.mean(light[i, :, :]))) for i in range(0, light.shape[0])]
+        #breakpoint()
         return
 
 
