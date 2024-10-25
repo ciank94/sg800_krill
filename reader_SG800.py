@@ -11,7 +11,7 @@ import logging
 
 class SGReader:
 
-    def __init__(self, remote, test, light_mapping, bio_mapping, temp_beh, dvm_beh, feed_beh):
+    def __init__(self, remote, test, light_mapping, bio_mapping, temp_beh, dvm_beh, feed_beh, exp_tag):
         # initialise switches for model parameterisation:
         self.logger = logging.getLogger(__name__)  # initiate logger
         self.logger.warning('========================')
@@ -22,6 +22,7 @@ class SGReader:
         self.bio_mapping = bio_mapping
         self.temp_beh = temp_beh
         self.dvm_beh = dvm_beh
+        self.exp_tag = exp_tag
         if (self.dvm_beh) & (self.temp_beh):
             self.temp_beh = False
             self.logger.warning('dvm_beh overriding temp_beh')
@@ -53,13 +54,13 @@ class SGReader:
         self.file_month = self.init_datetime.month
         self.time = num2date(self.nc_file['time'], self.nc_file['time'].units)
         self.save_file_prefix = 'trajectory_' + str(date_init.year) + "{:02d}".format(
-            date_init.month) + "{:02d}".format(date_init.day) + '_d' + str(duration)
+            date_init.month) + "{:02d}".format(date_init.day) + '_d' + str(duration) + '_' + self.exp_tag
         self.save_file = self.save_file_prefix + '.nc'
         current_datenum = date2num(self.current_datetime, self.nc_file['time'].units)
         self.time_index = np.argmin((current_datenum-self.nc_file['time'][:])**2)
         # set up logging to file
         log_filename = 'logger_' + str(date_init.year) + "{:02d}".format(
-            date_init.month) + "{:02d}".format(date_init.day) + '_d' + str(duration)
+            date_init.month) + "{:02d}".format(date_init.day) + '_d' + str(duration) + '_' + self.exp_tag
         logging.basicConfig(
             filename=self.trajectory_folder + log_filename + '.log',
             level=logging.INFO,
@@ -72,7 +73,8 @@ class SGReader:
         self.logger.info('========================')
         self.logger.info('=======filepaths========')
         self.logger.info('opening new SG file: ' + self.filename)
-
+        self.logger.warning('SG file: ' + self.filename)
+        self.logger.warning('trajectory file: ' + self.save_file)
         return
 
     def read_light(self):
@@ -227,7 +229,8 @@ class SGReader:
         # plt.pcolormesh(check_vals, cmap=cmap)
         # plt.colorbar(label='mg m**-3')
         # plt.show()
-        #
+
+        # chlorophyll on original grid;
         # lon = self.bio_ncfile['longitude'][:]
         # lat = self.bio_ncfile['latitude'][:]
         # fig, axs = plt.subplots(figsize=(8, 8), nrows=1, ncols=1, subplot_kw={'projection': ccrs.PlateCarree()})
@@ -238,6 +241,41 @@ class SGReader:
         # axs.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
         # plt.show()
         # breakpoint()
+
+        #import matplotlib.pyplot as plt
+        #fig, axs = plt.subplots()
+        #T_A = 8000  # K
+        #degC = 0  # C
+        #T_1 = degC + 273.15
+        #f=1
+        #length_list = np.arange(1, 60, 0.1)
+        #temp_list = [-1, 0, 1, 2, 3, 4, 5]
+        #for t in temp_list:
+        #    T = t + 273.15
+        #    kgrowth = np.zeros(length_list.shape[0])
+        #    counter = -1
+        #    for l_v in length_list:
+        #        counter += 1
+        #        kgrowth[counter] = (60 - l_v) * 0.0035 * np.exp((T_A / T_1) - (T_A / T)) * f
+        #    plt.plot(length_list, kgrowth)
+        #    plt.legend(['-1', '0', '1', '2', '3', '4', '5'])
+        #plt.xlabel('length (mm)')
+        #plt.ylabel('instantaneous growth (mm day**-1)')
+        #plt.show()
+
+        #import matplotlib.pyplot as plt
+        #Kval = 0.2
+        #chl_vals = np.arange(0, 0.4, 0.01)
+        #f = np.zeros(chl_vals.shape[0])
+        #counter = -1
+        #for cv in chl_vals:
+        #    counter += 1
+        #    f[counter] = cv/(cv + Kval)
+
+        #plt.plot(chl_vals, f, 'k')
+        #plt.xlabel('chl a (mg m**-3)')
+        #plt.ylabel('f')
+        #plt.show()
         return
 
     def log_init(self, n, N, x_min, x_max, y_min, y_max, dt, save_step, simulation_steps, save_number):

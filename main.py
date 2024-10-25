@@ -6,6 +6,9 @@ import logging
 import time
 import matplotlib.pyplot as plt
 
+# add a tag for this experiment:
+exp_tag = 'sens2dep'
+
 # switches for changing the type of simulation:
 remote = False  # remote or local server
 test = True  # load data less frequently
@@ -13,7 +16,7 @@ light_mapping = False # mapping between SINMOD and ERA5 grid
 bio_mapping = False  # mapping between SINMOD and PISCES grid
 temp_beh = False  # vertical response to temperature gradient
 dvm_beh = False  # vertical response to light conditions (dvm_beh overrides temp_beh)
-feed_beh = True # f parameter defining feeding
+feed_beh = True  # f parameter defining feeding
 
 # time parameters:
 date_init = datetime.datetime(2017, 1, 1, 1, 0)
@@ -27,14 +30,14 @@ save_number = duration_days/save_step
 
 # model parameters:
 n = 1600  # particle number
-N = 2  # ensemble members;
+N = 1  # ensemble members;
 x_min = 210.0  # coordinates for initialization; todo: make initialization
 x_max = 610.4
 y_min = 210.0
 y_max = 610.5
 
 # Furnish reader with initial parameters:
-reader_SG = SGReader(remote, test, light_mapping, bio_mapping, temp_beh, dvm_beh, feed_beh)  # initialise switches for simulation
+reader_SG = SGReader(remote, test, light_mapping, bio_mapping, temp_beh, dvm_beh, feed_beh, exp_tag)  # initialise switches for simulation
 reader_SG.file_explorer()  # define paths to files in this folder
 reader_SG.init_time(duration_days.days, date_init)  # reader that adds time info from current file
 reader_SG.read_bio()  # read biology file
