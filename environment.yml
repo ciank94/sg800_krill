@@ -1,0 +1,11 @@
+name: sg800
+channels:
+  - defaults
+dependencies:
+  - logging
+  - pyproj
+  - datetime
+  - numpy
+  - matplotlib
+  - netcdf4
+  - time
