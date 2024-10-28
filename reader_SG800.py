@@ -6,66 +6,98 @@ import netCDF4 as nc
 import os
 import datetime
 from netCDF4 import num2date, date2num
+from yaml import Loader, load as yml_load
 import logging
 
 class SGReader:
-
-    def __init__(self, remote, test, light_mapping, bio_mapping, temp_beh, dvm_beh, feed_beh, exp_tag):
-        # initialise switches for model parameterisation:
-        self.logger = logging.getLogger(__name__)  # initiate logger
+    def __init__(self, namelist_path):
+        # initiate logger
+        self.logger = logging.getLogger(__name__)
         self.logger.warning('========================')
         self.logger.warning('Beginning new simulation ')
-        self.remote = remote
-        self.test = test
-        self.light_mapping = light_mapping
-        self.bio_mapping = bio_mapping
-        self.temp_beh = temp_beh
-        self.dvm_beh = dvm_beh
-        self.exp_tag = exp_tag
+
+        # load namelist:
+        namelist_file = namelist_path + 'namelist.yml'
+        stream = open(namelist_file, 'r')
+        namelist = yml_load(stream, Loader)
+
+        # switch list:
+        switch_list = namelist['switches']
+        self.remote = switch_list['remote']
+        self.test = switch_list['test']
+        self.feed_beh = switch_list['feed_beh']
+        self.dvm_beh = switch_list['dvm_beh']
+        self.temp_beh = switch_list['temp_beh']
+        self.light_mapping = switch_list['light_mapping']
+        self.bio_mapping = switch_list['bio_mapping']
         if (self.dvm_beh) & (self.temp_beh):
-            self.temp_beh = False
             self.logger.warning('dvm_beh overriding temp_beh')
-        self.feed_beh = feed_beh
 
-        return
-
-    def file_explorer(self):
-        self.samples_prefix = 'samplesNSEW_'
+        # file explorer:
+        file_list = namelist['file_explorer']
+        self.samples_prefix = file_list['samples_prefix']
+        self.exp_tag = file_list['experiment_tag']
         if self.remote:
-            remote_folder = '/cluster/projects/nn9828k/Cian_sinmod/sg800_krill/'
-            self.samples_folder = '/cluster/projects/nn9828k/Cian_sinmod/' + 'sg_phys_states/'
-            self.trajectory_folder = remote_folder + 'trajectory/'
+            sg_directory = file_list['remote']
         else:
-            self.samples_folder = 'A:/Cian_sinmod/sg_phys_states/'  # samples_folder = 'E:/fromIngrid/samplefiles_reruns/'
-            local_folder = 'C:/Users/ciank/PycharmProjects/sinmod/sg800_krill/'
-            self.trajectory_folder = local_folder + 'trajectory/'
+            sg_directory = file_list['local']
+        self.samples_folder = sg_directory['samples_folder']
+        self.trajectory_folder = sg_directory['trajectory_folder']
 
         self.logger.warning('samples folder = ' + self.samples_folder)
+        self.logger.warning('trajectory folder = ' + self.trajectory_folder)
         self.logger.warning('========================')
-        return
 
-    def init_time(self, duration, date_init):
-        self.filename = (self.samples_folder + self.samples_prefix + str(date_init.year) + "{:02d}".format(date_init.month) + '.nc')
-        self.nc_file = nc.Dataset(self.filename)
-        self.init_datetime = date_init
-        self.duration = duration
+        # time settings
+
+        time_list = namelist['time_settings']
+        year1 = time_list['year']
+        month1 = time_list['month']
+        day1 = time_list['day']
+        self.init_datetime = datetime.datetime(year1, month1, day1, 1, 0)
+        days1 = time_list['duration_days']
+        duration_days = datetime.timedelta(days=days1)  # simulation duration in days;
+        self.duration = duration_days.days
         self.current_datetime = self.init_datetime
         self.file_month = self.init_datetime.month
+        # load SG800 physics:
+        self.filename = (self.samples_folder + self.samples_prefix + str(self.init_datetime.year) + "{:02d}".format(
+            self.init_datetime.month) + '.nc')
+        self.nc_file = nc.Dataset(self.filename)
         self.time = num2date(self.nc_file['time'], self.nc_file['time'].units)
-        self.save_file_prefix = 'trajectory_' + str(date_init.year) + "{:02d}".format(
-            date_init.month) + "{:02d}".format(date_init.day) + '_d' + str(duration) + '_' + self.exp_tag
+        minutes = time_list['time_step_minutes']
+        self.dt = datetime.timedelta(hours=minutes / 60)
+        save_step_hours = time_list['save_step_hours']
+        self.save_step = datetime.timedelta(hours=save_step_hours)  # save time step
+        self.time_threshold = datetime.timedelta(seconds=0)
+        self.simulation_steps = duration_days / self.dt
+        self.save_number = int(duration_days / self.save_step)
+
+        # ibm settings:
+        ibm_list = namelist['ibm_settings']
+        self.n = ibm_list['n']
+        self.N = ibm_list['N']
+        self.x_min = ibm_list['x_min']
+        self.x_max = ibm_list['x_max']
+        self.y_min = ibm_list['y_min']
+        self.y_max = ibm_list['y_max']
+
+
+        # saving and logging:
+        self.save_file_prefix = ('trajectory_' + str(self.init_datetime.year) + "{:02d}".format(
+            self.init_datetime.month) + "{:02d}".format(self.init_datetime.day) + '_d' + str(self.duration) + '_' +
+                                 self.exp_tag)
         self.save_file = self.save_file_prefix + '.nc'
         current_datenum = date2num(self.current_datetime, self.nc_file['time'].units)
-        self.time_index = np.argmin((current_datenum-self.nc_file['time'][:])**2)
+        self.time_index = np.argmin((current_datenum - self.nc_file['time'][:]) ** 2)
+
         # set up logging to file
-        log_filename = 'logger_' + str(date_init.year) + "{:02d}".format(
-            date_init.month) + "{:02d}".format(date_init.day) + '_d' + str(duration) + '_' + self.exp_tag
+        log_filename = 'logger_' + str(self.init_datetime.year) + "{:02d}".format(
+            self.init_datetime.month) + "{:02d}".format(self.init_datetime.day) + '_d' + str(self.duration) + '_' + self.exp_tag
         logging.basicConfig(
             filename=self.trajectory_folder + log_filename + '.log',
             level=logging.INFO,
             filemode='w',
-            # format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
-            #format='[%(asctime)s] - %(name)s - %(levelname)s - %(message)s',
             format='[%(asctime)s] - %(message)s',
             datefmt='%H:%M:%S'
         )
@@ -74,6 +106,15 @@ class SGReader:
         self.logger.info('opening new SG file: ' + self.filename)
         self.logger.warning('SG file: ' + self.filename)
         self.logger.warning('trajectory file: ' + self.save_file)
+
+        # load biology file:
+        self.read_bio()
+
+        # load light file:
+        self.read_light()
+
+        # load initial values:
+        self.log_init()
         return
 
     def read_light(self):
@@ -277,15 +318,7 @@ class SGReader:
         #plt.show()
         return
 
-    def log_init(self, n, N, x_min, x_max, y_min, y_max, dt, save_step, simulation_steps, save_number):
-        self.n = n
-        self.N = N
-        self.x_min = x_min
-        self.x_max = x_max
-        self.y_min = y_min
-        self.y_max = y_max
-        self.save_number = int(save_number)
-        self.dt = dt
+    def log_init(self):
         self.logger.info('samples_filename = ' + str(self.filename))
         self.logger.info('date_init = ' + str(self.init_datetime))
         self.logger.info('==============================')
@@ -297,24 +330,24 @@ class SGReader:
         self.logger.info('temp_beh = ' + str(self.temp_beh))
         self.logger.info('==============================')
         self.logger.info('IBM parameters')
-        self.logger.info('n = ' + str(n))
-        self.logger.info('N = ' + str(N))
-        self.logger.info('x_min = ' + str(x_min))
-        self.logger.info('x_max = ' + str(x_max))
-        self.logger.info('y_min = ' + str(y_min))
-        self.logger.info('y_max = ' + str(y_max))
+        self.logger.info('n = ' + str(self.n))
+        self.logger.info('N = ' + str(self.N))
+        self.logger.info('x_min = ' + str(self.x_min))
+        self.logger.info('x_max = ' + str(self.x_max))
+        self.logger.info('y_min = ' + str(self.y_min))
+        self.logger.info('y_max = ' + str(self.y_max))
         self.logger.info('==============================')
         self.logger.info('Time parameters')
         self.logger.info('duration (days) = ' + str(self.duration))
-        self.logger.info('time step (hours) = ' + str(dt))
-        self.logger.info('save step (hours) = ' + str(save_step))
-        self.logger.info('simulation steps(#) = ' + str(int(simulation_steps)))
-        self.logger.info('save number(#) = ' + str(int(save_number)))
+        self.logger.info('time step (hours) = ' + str(self.dt))
+        self.logger.info('save step (hours) = ' + str(self.save_step))
+        self.logger.info('simulation steps(#) = ' + str(int(self.simulation_steps)))
+        self.logger.info('save number(#) = ' + str(int(self.save_number)))
         self.logger.info('==============================')
         return
 
-    def update_time(self, dt):
-        self.current_datetime += dt
+    def update_time(self):
+        self.current_datetime += self.dt
         if self.current_datetime.month != self.file_month:
             self.nc_file.close()
             self.update_file_month(samples_folder=self.samples_folder, samples_prefix=self.samples_prefix)

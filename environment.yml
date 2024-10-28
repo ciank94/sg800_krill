@@ -1,6 +1,6 @@
 name: sg800
 channels:
-  - defaults
+  - conda-forge
 dependencies:
   - logging
   - pyproj

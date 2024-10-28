@@ -252,11 +252,12 @@ class PlotData:
     def plot_growth(self, skip_t, kk):
         x_times = np.array(self.df['xp'][:, kk, ::skip_t])
         y_times = np.array(self.df['yp'][:, kk, ::skip_t])
-        growth = np.array(self.df['length'][:, kk, ::skip_t])
-
+        length = np.array(self.df['lp'][:, kk, ::skip_t])
         x_times[x_times > 1000] = np.nan
         y_times[y_times > 1000] = np.nan
-        growth[growth < -1000] = np.nan
+        length[length < -1000] = np.nan
+        ldiff = (length[:, 1::] - length[:, 0:-1]) * 24
+        growth = np.c_[np.zeros(ldiff.shape[0]), ldiff]
         dom_vals = np.zeros(self.depth.shape)
         dom_vals[:] = self.depth[:]
         dom_vals[~np.isnan(dom_vals)] = 0
@@ -276,9 +277,9 @@ class PlotData:
         #print(str(x_times.shape[1]))
         # dom_vals[(dom_vals==0)] = np.nan
         fig, axs = plt.subplots(figsize=(12, 8), layout='constrained')
-        cmap = plt.get_cmap('Greens')
+        cmap = cmr.nuclear
         cmap.set_bad('gray', 0.4)
-        vmax = np.nanmax(dom_vals) / 1.35
+        vmax = np.nanmax(dom_vals)/1.1
         # vmax=0.0035
         dom_map = axs.pcolormesh(dom_vals, cmap=cmap, alpha=1, vmax=vmax)
         axs.contour(self.depth, levels=self.bath_contours, colors='k', alpha=0.8,
@@ -389,8 +390,8 @@ class PlotData:
 
         x_times[x_times >= self.i_max] = self.i_max - 1
         y_times[y_times >= self.j_max] = self.j_max - 1
-        stept = 20
-        second_point = 60
+        stept = 50
+        second_point = int(x_times.shape[1]/10)
         for j in range(0, int(x_times.shape[1]/stept)):
             dom_vals = np.zeros(self.depth.shape)
             dom_vals[:] = self.depth[:]
@@ -413,7 +414,7 @@ class PlotData:
 
             # vmax=0.0035
             #plt.contourf(df.columns, df.index, df, 800, colors='white')
-            container = ax.contourf(dom_vals, cmap=cmap, alpha=1, levels=np.linspace(0, 0.25,25))
+            container = ax.contourf(dom_vals, cmap=cmap, alpha=1, levels=np.linspace(0, 0.2,25))
 
             if j == 0:
                 #vmax = np.nanmax(dom_vals) / 2

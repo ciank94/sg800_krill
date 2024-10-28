@@ -1,0 +1,39 @@
+switches:
+  remote: False # remote or local server
+  test: True # load data less frequently (daily if SG800)
+  feed_beh: True # Arrhenius relation to temperature & Holling type 2 response to prey density
+  dvm_beh: False # dvm behaviour based on isolumes
+  temp_beh: False # behaviour based on temperature comfort zone
+  bio_mapping: False # mapping between SINMOD and PISCES grid
+  light_mapping: False # mapping between SINMOD and ERA5 grid
+
+time_settings:
+  year: 2017
+  month: 2
+  day: 1
+  duration_days: 50
+  time_step_minutes: 240
+  save_step_hours: 4
+
+ibm_settings:
+  n: 1600  # particle number
+  N: 1  # ensemble members;
+  x_min: 210.0  # coordinates for initialization; todo: make initialization
+  x_max: 610.4
+  y_min: 210.0
+  y_max: 610.5
+
+file_explorer:
+  experiment_tag: 'sens2dep'
+  samples_prefix: 'samplesNSEW_'
+  local:
+    samples_folder: 'A:/Cian_sinmod/sg_phys_states/'
+    trajectory_folder: 'C:/Users/ciank/PycharmProjects/sinmod/sg800_krill/trajectory/'
+  remote:
+    samples_folder: '/cluster/projects/nn9828k/Cian_sinmod/sg_phys_states/'
+    trajectory_folder: '/cluster/projects/nn9828k/Cian_sinmod/sg800_krill/trajectory/'
+
+
+
+
+

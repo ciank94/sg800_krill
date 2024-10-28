@@ -72,11 +72,11 @@ class Krill:
                               + str(reader_SG.N) + ' ensemble members')
         return
 
-    def step_krill(self, dt_datetime, reader_SG):
+    def step_krill(self, reader_SG):
         time_index = reader_SG.time_index
         biotime_index = reader_SG.bio_index
         nc_file = reader_SG.nc_file
-        dt = dt_datetime.seconds
+        dt = reader_SG.dt.seconds
         if biotime_index != self.bio_load_counter:
             self.chl = np.array(reader_SG.bio_ncfile['chl'][biotime_index, :, :, :])
             self.chl[self.chl>10000] = np.nan
@@ -131,7 +131,9 @@ class Krill:
                             kgrowth = self.feeding(reader_SG, x1, y1, l1, layer_ii, t)
                             if np.isnan(kgrowth):
                                 print('invalid growth value;')
-                            self.l[ii, kk] += (kgrowth/86400)*dt
+                                self.l[ii, kk] += 0
+                            else:
+                                self.l[ii, kk] += (kgrowth/86400)*dt
 
                         if reader_SG.dvm_beh:
                             w=0.
@@ -172,8 +174,11 @@ class Krill:
         chl_val = np.nanmean(self.chl[d_slice, lat_slice, lon_slice])
         # print(str(chl_val))
         # get rates:
-        f = chl_val / (chl_val + self.kpar)
-        ing = self.gpar * f * self.lpar
+        if chl_val > 0:
+            f = chl_val / (chl_val + self.kpar)
+        else:
+            f = 0
+        #ing = self.gpar * f * self.lpar
         T = t + 273.15
         kgrowth = (self.lmax - l1) * self.r_ref * np.exp((self.T_A / self.T_1) - (self.T_A / T)) * f
         # print('chl (mg m-3) = ' + str(chl_val))

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from netCDF4 import num2date, date2num
 from plotting import PlotData
-remote = False
+remote = True
 
 # file directories:
 local_directory = 'C:/Users/ciank/PycharmProjects/sinmod/sg800_krill/'
@@ -18,14 +18,14 @@ pl = PlotData(save_folder, trajectory_folder)
 
 
 # read the file that needs reading: #todo: functions that call different files, determines number of plots and saves if time
-time_prefix = 'trajectory_20170101_d40'
+time_prefix = 'trajectory_20170401_d50_sens2dep'
 pl.read_trajectory_file(file_prefix=time_prefix)
 
 #pl.animate_dom(kk=1, skip_t=1)
 #breakpoint()
 
 
-pl.plot_growth(skip_t=1, kk=0)
+#pl.plot_growth(skip_t=1, kk=0)
 
 #pl.plot_anomalies(skip_t=1, kk=0)
 
@@ -42,7 +42,7 @@ pl.plot_growth(skip_t=1, kk=0)
 #pl.plot_retention()
 
 # dom_pathways plots:
-#pl.plot_dom_pathways(skip_t=1, kk=slice(0,1,1))
+pl.plot_dom_pathways(skip_t=1, kk=slice(0,1,1))
 
 
 
