@@ -390,8 +390,8 @@ class PlotData:
 
         x_times[x_times >= self.i_max] = self.i_max - 1
         y_times[y_times >= self.j_max] = self.j_max - 1
-        stept = 50
         second_point = int(x_times.shape[1]/10)
+        stept = int(second_point/1.5)
         for j in range(0, int(x_times.shape[1]/stept)):
             dom_vals = np.zeros(self.depth.shape)
             dom_vals[:] = self.depth[:]
@@ -469,3 +469,26 @@ class PlotData:
         plt.savefig(savefile, dpi=400)
         plt.close()
         return
+
+def plot_physics(filename):
+    x_min = 500
+    x_max = 630
+    x_slice = slice(x_min, x_max, 1)
+    y_min = 475
+    y_max = 625
+    y_slice = slice(y_min, y_max, 1)
+
+
+    df = nc.Dataset(filename)
+    temp_mat = df['temperature']
+    #temp = temp_mat[0, 0, :, :]
+    #temp[y_slice, x_slice] = np.nan
+    #plt.pcolormesh(temp)
+
+    temp_depth = temp_mat[0, :, y_slice, x_slice]
+    t_mean1 = np.nanmean(temp_depth, 2)
+    t_mean2 = np.nanmean(t_mean1, 1) - 273.15
+    #plt.show()
+    breakpoint()
+
+
