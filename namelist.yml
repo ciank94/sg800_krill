@@ -1,7 +1,7 @@
 switches:
   remote: False # remote or local server
   test: True # load data less frequently (daily if SG800)
-  feed_beh: True # Arrhenius relation to temperature & Holling type 2 response to prey density
+  feed_beh: True # Arrhenius' relation to temperature & Holling type 2 response to prey density
   dvm_beh: False # dvm behaviour based on isolumes
   temp_beh: False # behaviour based on temperature comfort zone
   bio_mapping: False # mapping between SINMOD and PISCES grid
@@ -24,16 +24,16 @@ ibm_settings:
   y_max: 610.5
 
 file_explorer:
-  experiment_tag: 'sens2dep'
+  remote_server: 'saga'
+  experiment_tag: 'test'
   samples_prefix: 'samplesNSEW_'
+  sg_folder_name: 'sg800_krill/'
+  samples_folder_name: 'sg_phys_states/'
+  trajectory_folder_name: 'trajectory/'
   local:
-    samples_folder: 'A:/Cian_sinmod/sg_phys_states/'
-    trajectory_folder: 'C:/Users/ciank/PycharmProjects/sinmod/sg800_krill/trajectory/'
+    local_dir_prefix: 'C:/Users/ciank/PycharmProjects/sinmod/'
+    saga_dir_prefix: 'A:/Cian_sinmod/' # directory where sg800 folder is cloned
+    idun_dir_prefix: 'D:/' # directory where sg800 folder is cloned
   remote:
-    samples_folder: '/cluster/projects/nn9828k/Cian_sinmod/sg_phys_states/'
-    trajectory_folder: '/cluster/projects/nn9828k/Cian_sinmod/sg800_krill/trajectory/'
-
-
-
-
-
+    saga_dir_prefix: '/cluster/projects/nn9828k/Cian_sinmod/' # directory where sg800 folder is cloned
+    idun_dir_prefix: '/cluster/work/ciank/' # directory where sg800 folder is cloned

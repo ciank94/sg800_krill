@@ -5,9 +5,10 @@ from plotting import PlotData, plot_physics
 remote = True
 
 # yr = 2017
-# month = 1
+# month = 7
 # prefix = 'samplesNSEW_'
-# filename = 'A:/Cian_sinmod/sg_phys_states/' + prefix + str(yr) + "{:02d}".format(month) + '.nc'
+# #filename = 'A:/Cian_sinmod/sg_phys_states/' + prefix + str(yr) + "{:02d}".format(month) + '.nc'
+# filename = 'D:/sg_phys_states/' + prefix + str(yr) + "{:02d}".format(month) + '.nc'
 # plot_physics(filename)
 
 
@@ -25,13 +26,13 @@ pl = PlotData(save_folder, trajectory_folder)
 
 
 # read the file that needs reading: #todo: functions that call different files, determines number of plots and saves if time
-time_prefix = 'trajectory_20170101_d50'
+time_prefix = 'trajectory_20170301_d50_sens2dep'
 pl.read_trajectory_file(file_prefix=time_prefix)
 
 
 
-
-
+pl.entry_area(kk=0)
+breakpoint()
 pl.animate_dom(kk=0, skip_t=1)
 breakpoint()
 

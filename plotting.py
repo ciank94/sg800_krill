@@ -30,6 +30,46 @@ class PlotData:
         #[np.sum(np.isnan(self.df['xp'][:, 0, i])) for i in range(0, self.df['xp'].shape[2])]
         return
 
+    def entry_area(self, kk):
+        x_min = 500
+        x_max = 630
+        x_slice = slice(x_min, x_max, 1)
+        y_min = 475
+        y_max = 625
+        y_slice = slice(y_min, y_max, 1)
+        skip_t = 1
+        #kk=0
+        fig, axs = plt.subplots(1, 1)
+        counter = -1
+
+        x_times = np.array(self.df['xp'][:, kk, ::skip_t])
+        y_times = np.array(self.df['yp'][:, kk, ::skip_t])
+        # exit_ind = np.zeros(x_times.shape[0])
+        # for ii in range(0, x_times.shape[0]):
+        #     id_ret = (x_times[ii, :] >= x_min) & (x_times[ii, :] <= x_max) & (y_times[ii, :] >= y_min) & (
+        #             y_times[ii, :] <= y_max)
+        #     if np.sum(id_ret) > 0:
+        #         exit_ind[ii] = np.where(id_ret)[0][0]
+        #
+        #     print('n individuals leaving' + str(np.sum(exit_ind > 0)))
+
+        exit_time = np.zeros(x_times.shape[1])
+        for jj in range(0, x_times.shape[1]):
+            id_ret = (x_times[:, jj] >= x_min) & (x_times[:, jj] <= x_max) & (y_times[:, jj] >= y_min) & (
+                    y_times[:, jj] <= y_max)
+            if jj > 0:
+                exit_time[jj] = np.sum(id_ret)
+            x_times[id_ret, :] = np.nan
+            y_times[id_ret, :] = np.nan
+
+        axs.plot(np.cumsum(exit_time))
+        axs.set_title('Initialised month = ' + str(self.dates[0].month), fontsize=25)
+        axs.set_xlabel('time step')
+        axs.set_ylabel('cumulative number of individuals entering')
+        plt.show()
+        breakpoint()
+
+
 
 
     def plot_retention(self):
@@ -481,14 +521,30 @@ def plot_physics(filename):
 
     df = nc.Dataset(filename)
     temp_mat = df['temperature']
-    #temp = temp_mat[0, 0, :, :]
-    #temp[y_slice, x_slice] = np.nan
-    #plt.pcolormesh(temp)
 
-    temp_depth = temp_mat[0, :, y_slice, x_slice]
-    t_mean1 = np.nanmean(temp_depth, 2)
-    t_mean2 = np.nanmean(t_mean1, 1) - 273.15
-    #plt.show()
+    # temp = temp_mat[0, 0, :, :]
+    # temp[y_slice, x_slice] = np.nan
+    # plt.pcolormesh(temp)
+    # plt.show()
+
+    time_list = num2date(df['time'], df['time'].units)
+    depth_v = np.cumsum(df['LayerDepths'])
+
+    fig,axs = plt.subplots()
+
+    it_num = range(0, temp_mat.shape[0], 75)
+    for i in it_num:
+        print(str(i))
+        temp_depth = temp_mat[i, :, :, :]
+        #t_mean1 = np.nanmean(temp_depth[:, y_slice,  x_slice], 2)
+        t_mean1 = np.nanmean(temp_depth[:, :, :], 2)
+        t_mean2 = np.nanmean(t_mean1, 1) - 273.15
+        axs.plot(t_mean2, depth_v, 'k-')
+        axs.set_ylabel('depth (m)')
+        axs.set_xlabel('temperature (degC)')
+    plt.title('month = ' + str(time_list[0].month))
+    plt.gca().invert_yaxis()
+    plt.show()
     breakpoint()
 
 

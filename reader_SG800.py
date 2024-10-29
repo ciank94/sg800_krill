@@ -37,19 +37,36 @@ class SGReader:
         file_list = namelist['file_explorer']
         self.samples_prefix = file_list['samples_prefix']
         self.exp_tag = file_list['experiment_tag']
+        fsamples_prefix = []
+        ftrajectory_prefix = []
         if self.remote:
-            sg_directory = file_list['remote']
+            if file_list['remote_server'] == 'idun':
+                fsamples_prefix = file_list['remote']['idun_dir_prefix']
+                ftrajectory_prefix = fsamples_prefix
+            elif file_list['remote']['server'] == 'saga':
+                fsamples_prefix = file_list['remote']['saga_dir_prefix']
+                ftrajectory_prefix = fsamples_prefix
+            else:
+                os.error('not a valid server name')
         else:
-            sg_directory = file_list['local']
-        self.samples_folder = sg_directory['samples_folder']
-        self.trajectory_folder = sg_directory['trajectory_folder']
+            ftrajectory_prefix = file_list['local']['local_dir_prefix']
+            if file_list['remote_server'] == 'idun':
+                fsamples_prefix = file_list['local']['idun_dir_prefix']
+            elif file_list['remote_server'] == 'saga':
+                fsamples_prefix = file_list['local']['saga_dir_prefix']
+            else:
+                os.error('not a valid server name')
+
+        samples_folder = fsamples_prefix + file_list['samples_folder_name']
+        trajectory_folder = ftrajectory_prefix + file_list['sg_folder_name'] + file_list['trajectory_folder_name']
+        self.samples_folder = samples_folder
+        self.trajectory_folder = trajectory_folder
 
         self.logger.warning('samples folder = ' + self.samples_folder)
         self.logger.warning('trajectory folder = ' + self.trajectory_folder)
         self.logger.warning('========================')
 
         # time settings
-
         time_list = namelist['time_settings']
         year1 = time_list['year']
         month1 = time_list['month']
@@ -323,7 +340,6 @@ class SGReader:
         self.logger.info('date_init = ' + str(self.init_datetime))
         self.logger.info('==============================')
         self.logger.info('===========switches===========')
-        self.logger.info('Switches')
         self.logger.info('test = ' + str(self.test))
         self.logger.info('dvm_beh = ' + str(self.dvm_beh))
         self.logger.info('feed_beh = ' + str(self.dvm_beh))
