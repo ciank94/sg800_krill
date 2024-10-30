@@ -15,7 +15,8 @@ remote = True
 # file directories:
 local_directory = 'C:/Users/ciank/PycharmProjects/sinmod/sg800_krill/'
 if remote:
-    remote_folder = 'A:/Cian_sinmod/sg800_krill/'
+    #remote_folder = 'A:/Cian_sinmod/sg800_krill/'
+    remote_folder = 'D:/sg800_krill/'
     trajectory_folder = remote_folder + 'trajectory/'
 else:
     trajectory_folder = local_directory + 'trajectory/'
@@ -26,18 +27,18 @@ pl = PlotData(save_folder, trajectory_folder)
 
 
 # read the file that needs reading: #todo: functions that call different files, determines number of plots and saves if time
-time_prefix = 'trajectory_20170301_d50_sens2dep'
+time_prefix = 'trajectory_20170206_d50_test'
 pl.read_trajectory_file(file_prefix=time_prefix)
 
 
 
-pl.entry_area(kk=0)
-breakpoint()
-pl.animate_dom(kk=0, skip_t=1)
-breakpoint()
+#pl.entry_area(kk=0)
+#pl.animate_dom(kk=0, skip_t=1)
+#breakpoint()
 
 
-#pl.plot_growth(skip_t=1, kk=0)
+pl.plot_growth(skip_t=1, kk=0)
+breakpoint()
 
 #pl.plot_anomalies(skip_t=1, kk=0)
 

@@ -24,7 +24,7 @@ ibm_settings:
   y_max: 610.5
 
 file_explorer:
-  remote_server: 'saga'
+  remote_server: 'idun'
   experiment_tag: 'test'
   samples_prefix: 'samplesNSEW_'
   sg_folder_name: 'sg800_krill/'

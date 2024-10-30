@@ -10,7 +10,7 @@ from yaml import Loader, load as yml_load
 import logging
 
 class SGReader:
-    def __init__(self, namelist_path):
+    def __init__(self, namelist_path, release_number):
         # initiate logger
         self.logger = logging.getLogger(__name__)
         self.logger.warning('========================')
@@ -71,7 +71,8 @@ class SGReader:
         year1 = time_list['year']
         month1 = time_list['month']
         day1 = time_list['day']
-        self.init_datetime = datetime.datetime(year1, month1, day1, 1, 0)
+        day_inc = datetime.timedelta(days=release_number)  # IMPORTANT
+        self.init_datetime = datetime.datetime(year1, month1, day1, 1, 0) + day_inc
         days1 = time_list['duration_days']
         duration_days = datetime.timedelta(days=days1)  # simulation duration in days;
         self.duration = duration_days.days

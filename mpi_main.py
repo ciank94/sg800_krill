@@ -5,14 +5,28 @@ import numpy as np
 import logging
 import time
 import matplotlib.pyplot as plt
+from mpi4py import MPI
+
+
+world_comm = MPI.COMM_WORLD
+world_size = world_comm.Get_size()
+my_rank = world_comm.Get_rank()
 
 # namelist for experiment setup:
 #namelist_path = '/cluster/projects/nn9828k/Cian_sinmod/sg800_krill/'
-namelist_path = 'C:/Users/ciank/PycharmProjects/sinmod/sg800_krill/'
-release_day_increment = 5
+#namelist_path = 'C:/Users/ciank/PycharmProjects/sinmod/sg800_krill/'
+namelist_path = '/cluster/work/ciank/sg800_krill/'
+
+if my_rank == 0:
+    release_day_increment = 0
+else:
+    release_day_increment = my_rank*5
 
 # initialise reader based on namelist configuration
 reader_SG = SGReader(namelist_path, release_day_increment)
+
+# process:
+reader_SG.logger.warning(str(reader_SG.init_datetime) + ' for my_rank = ' + str(my_rank))
 
 # start of simulation:
 time_counter = reader_SG.save_step
@@ -43,6 +57,7 @@ for i in np.arange(0, reader_SG.simulation_steps, 1):
         # k.plot_init(kk=0)  # plot an example ensemble member
 
 # finished simulation;
+k.trajectory_file.close()
 python_time = time.time() - start_time
 reader_SG.logger.info(f"Simulation took {python_time/(60*60):.2f} hours.")
-k.trajectory_file.close()
+
