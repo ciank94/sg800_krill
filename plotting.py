@@ -353,11 +353,12 @@ class PlotData:
         fig, axs = plt.subplots(figsize=(12, 8), layout='constrained')
         cmap = plt.get_cmap('hot')
         cmap.set_bad('gray', 0.4)
-        vmax = np.nanmax(dom_vals)/2
-        #vmax=0.0035
+        #vmax = np.nanmax(dom_vals)/3
+        vmax=0.01
         dom_map = axs.pcolormesh(dom_vals, cmap=cmap, alpha=1, vmax=vmax)
         axs.contour(self.depth, levels=self.bath_contours, colors='k', alpha=0.8,
                     linewidths=1.5, zorder=2)
+        axs.set_title(str(self.dates[0]), fontsize=14)
         cbar = fig.colorbar(dom_map)
         cbar.ax.tick_params(labelsize=12)
         cbar.ax.set_ylabel('probability (%)', loc='center', size=12, weight='bold')
@@ -430,14 +431,16 @@ class PlotData:
 
         x_times[x_times >= self.i_max] = self.i_max - 1
         y_times[y_times >= self.j_max] = self.j_max - 1
-        second_point = int(x_times.shape[1]/10)
-        stept = int(second_point/1.5)
+        second_point = int(x_times.shape[1]/5)
+        stept = int(second_point/5)
+        it_a = 0
+        it_b = second_point
         for j in range(0, int(x_times.shape[1]/stept)):
             dom_vals = np.zeros(self.depth.shape)
             dom_vals[:] = self.depth[:]
             dom_vals[~np.isnan(dom_vals)] = 0
-            it_a = (j * stept)
-            it_b = second_point + (j + 1) * stept
+            it_a += stept
+            it_b += stept
             if it_b >= x_times.shape[1]:
                 break
             print(str(it_a))
@@ -454,16 +457,25 @@ class PlotData:
 
             # vmax=0.0035
             #plt.contourf(df.columns, df.index, df, 800, colors='white')
-            container = ax.contourf(dom_vals, cmap=cmap, alpha=1, levels=np.linspace(0, 0.2,25))
-
             if j == 0:
+                ax.contour(self.depth, levels=self.bath_contours, colors='k', alpha=0.35,
+                       linewidths=1.5)
+                plt.title('datetime = ' + str(self.dates[0]), fontsize=25)
+            container = ax.contourf(dom_vals, cmap=cmap, alpha=1, levels=np.linspace(0, 0.03, 40))
+
+
+            print(str(self.dates[j * int(x_times.shape[1] / stept)]))
+
+
+
+            #if j == 0:
                 #vmax = np.nanmax(dom_vals) / 2
-                fig.colorbar(container)
-                ax.set_title('Initialised month = ' + str(self.dates[0].month), fontsize = 25)
+                #fig.colorbar(container)
+
 
             artists.append(container.collections)
-        ani = animation.ArtistAnimation(fig=fig, artists=artists)
-        ani.save(filename=self.save_folder + 'ani_examp.gif', writer="ffmpeg")
+        ani = animation.ArtistAnimation(fig=fig, artists=artists,interval=400, blit=True)
+        ani.save(filename=self.save_folder + 'ani_examp.gif', writer="Pillow")
 
 
 
