@@ -7,9 +7,9 @@ import time
 import matplotlib.pyplot as plt
 
 # namelist for experiment setup:
-#namelist_path = '/cluster/projects/nn9828k/Cian_sinmod/sg800_krill/'
-namelist_path = 'C:/Users/ciank/PycharmProjects/sinmod/sg800_krill/'
-release_day_increment = 5
+# namelist_path = '/cluster/projects/nn9828k/Cian_sinmod/sg800_krill/'
+namelist_path = "C:/Users/ciank/PycharmProjects/sinmod/sg800_krill/"
+release_day_increment = 0
 
 # initialise reader based on namelist configuration
 reader_SG = SGReader(namelist_path, release_day_increment)
@@ -21,7 +21,7 @@ start_time = time.time()
 for i in np.arange(0, reader_SG.simulation_steps, 1):
     time_counter -= reader_SG.dt
     if i == 0:
-        reader_SG.logger.info('Initialising krill')
+        reader_SG.logger.info("Initialising krill")
         k = Krill(reader_SG.nc_file)
         if reader_SG.temp_beh:
             k.init_temp_response(reader_SG)
@@ -38,7 +38,9 @@ for i in np.arange(0, reader_SG.simulation_steps, 1):
     if time_counter <= reader_SG.time_threshold:
         save_counter += 1
         time_counter = reader_SG.save_step
-        reader_SG.logger.info('saving ' + str(save_counter + 1) + ' of ' + str(reader_SG.save_number))
+        reader_SG.logger.info(
+            "saving " + str(save_counter + 1) + " of " + str(reader_SG.save_number)
+        )
         k.save_step(save_counter, reader_SG)
         # k.plot_init(kk=0)  # plot an example ensemble member
 
